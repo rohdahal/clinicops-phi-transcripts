@@ -1,6 +1,7 @@
 import TranscriptsList from "./TranscriptsList.client";
 import AppHeader from "@/src/components/AppHeader";
 import { fetchTranscriptsPage } from "@/src/lib/backend";
+import { createSupabaseServerClient } from "@/src/lib/supabase/server";
 
 type SearchParams = {
   source?: string | string[];
@@ -8,7 +9,7 @@ type SearchParams = {
 };
 
 type PageProps = {
-  searchParams?: SearchParams;
+  searchParams?: SearchParams | Promise<SearchParams>;
 };
 
 const getParamValue = (value: string | string[] | undefined) => {
@@ -19,8 +20,14 @@ const getParamValue = (value: string | string[] | undefined) => {
 };
 
 export default async function TranscriptsPage({ searchParams }: PageProps) {
-  const sourceParam = getParamValue(searchParams?.source)?.trim();
-  const patientParam = getParamValue(searchParams?.patient_pseudonym)?.trim();
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { session }
+  } = await supabase.auth.getSession();
+  const accessToken = session?.access_token;
+  const resolvedSearchParams = await Promise.resolve(searchParams);
+  const sourceParam = getParamValue(resolvedSearchParams?.source)?.trim();
+  const patientParam = getParamValue(resolvedSearchParams?.patient_pseudonym)?.trim();
   const filters = {
     source: sourceParam || undefined,
     patient_pseudonym: patientParam || undefined
@@ -28,6 +35,7 @@ export default async function TranscriptsPage({ searchParams }: PageProps) {
   const initialData = await fetchTranscriptsPage({
     limit: 20,
     offset: 0,
+    accessToken,
     ...filters
   });
 
@@ -80,6 +88,7 @@ export default async function TranscriptsPage({ searchParams }: PageProps) {
           initialItems={initialData.items}
           initialNextOffset={initialData.next_offset}
           initialHasMore={initialData.has_more}
+          accessToken={accessToken}
           initialFilters={filters}
         />
       </main>

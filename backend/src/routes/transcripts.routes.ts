@@ -1,5 +1,7 @@
 import type { FastifyInstance } from "fastify";
+import { logAuditEvent } from "../lib/audit";
 import { supabaseAdmin } from "../lib/supabaseAdmin";
+import { authUser } from "../plugins/authUser";
 
 type TranscriptInput = {
   patient_pseudonym?: string;
@@ -17,73 +19,114 @@ type TranscriptQuery = {
   patient_pseudonym?: string;
 };
 
+type TranscriptDetailQuery = {
+  from?: string;
+};
+
 export async function transcriptsRoutes(app: FastifyInstance) {
-  // List transcripts for ops UI (paginated)
-  app.get<{ Querystring: TranscriptQuery }>("/transcripts", async (request, reply) => {
-    const limitRaw = Number(request.query.limit ?? 20);
-    let limit = Number.isNaN(limitRaw) ? 20 : limitRaw;
-    limit = Math.min(Math.max(limit, 1), 500);
+  app.get<{ Querystring: TranscriptQuery }>(
+    "/transcripts",
+    { preHandler: authUser },
+    async (request, reply) => {
+      const limit = Math.min(Number(request.query.limit ?? 20), 100) || 20;
+      const offset = Math.max(Number(request.query.offset ?? 0), 0) || 0;
+      const source = request.query.source;
+      const patientPseudonym = request.query.patient_pseudonym;
+      const rangeEnd = offset + limit;
 
-    const offsetRaw = Number(request.query.offset ?? 0);
-    const offset = Number.isNaN(offsetRaw) || offsetRaw < 0 ? 0 : offsetRaw;
+      let query = supabaseAdmin
+        .from("transcripts")
+        .select("id,created_at,patient_pseudonym,source,source_ref")
+        .order("created_at", { ascending: false })
+        .range(offset, rangeEnd);
 
-    const source = request.query.source;
-    const patientPseudonym = request.query.patient_pseudonym;
+      if (source) {
+        query = query.eq("source", source);
+      }
 
-    let query = supabaseAdmin
-      .from("transcripts")
-      .select("id,created_at,patient_pseudonym,source,source_ref")
-      .order("created_at", { ascending: false })
-      .range(offset, offset + limit - 1);
+      if (patientPseudonym) {
+        query = query.eq("patient_pseudonym", patientPseudonym);
+      }
 
-    if (source) {
-      query = query.eq("source", source);
+      const { data, error } = await query;
+
+      if (error) {
+        reply.code(500);
+        return { error: "supabase_error" };
+      }
+
+      const items = data ?? [];
+      const hasMore = items.length > limit;
+      const slicedItems = hasMore ? items.slice(0, limit) : items;
+
+      return {
+        items: slicedItems,
+        limit,
+        offset,
+        next_offset: hasMore ? offset + limit : null,
+        has_more: hasMore
+      };
     }
+  );
 
-    if (patientPseudonym) {
-      query = query.eq("patient_pseudonym", patientPseudonym);
+  app.get<{ Params: { id: string }; Querystring: TranscriptDetailQuery }>(
+    "/transcripts/:id",
+    { preHandler: authUser },
+    async (request, reply) => {
+      const { id } = request.params;
+      const { data, error } = await supabaseAdmin
+        .from("transcripts")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (error) {
+        reply.code(500);
+        return { error: "supabase_error" };
+      }
+
+      if (!data) {
+        reply.code(404);
+        return { error: "not_found" };
+      }
+
+      await logAuditEvent({
+        entity_type: "transcript",
+        entity_id: data.id,
+        actor_type: "user",
+        actor_display: request.user!.email,
+        actor_id: request.user!.id,
+        action: "transcript.viewed",
+        details: {
+          ui: "detail",
+          from: request.query.from ?? null
+        }
+      });
+
+      return data;
     }
+  );
 
-    const { data, error } = await query;
+  app.get<{ Params: { id: string } }>(
+    "/transcripts/:id/audit",
+    { preHandler: authUser },
+    async (request, reply) => {
+      const { data, error } = await supabaseAdmin
+        .from("audit_events")
+        .select("*")
+        .eq("entity_type", "transcript")
+        .eq("entity_id", request.params.id)
+        .order("created_at", { ascending: false });
 
-    if (error) {
-      reply.code(500);
-      return { error: "supabase_error" };
+      if (error) {
+        reply.code(500);
+        return { error: "supabase_error" };
+      }
+
+      return data ?? [];
     }
+  );
 
-    const items = data ?? [];
-    return {
-      items,
-      limit,
-      offset,
-      next_offset: offset + items.length,
-      has_more: items.length === limit,
-    };
-  });
-
-  // Fetch full transcript by id (detail view)
-  app.get<{ Params: { id: string } }>("/transcripts/:id", async (request, reply) => {
-    const { id } = request.params;
-    const { data, error } = await supabaseAdmin
-      .from("transcripts")
-      .select("*")
-      .eq("id", id)
-      .maybeSingle();
-
-    if (error) {
-      reply.code(500);
-      return { error: "supabase_error" };
-    }
-
-    if (!data) {
-      reply.code(404);
-      return { error: "not_found" };
-    }
-
-    return data;
-  });
-
-  // Ingest a new transcript from upstream system (idempotent)
   app.post<{ Body: TranscriptInput }>("/transcripts", async (request, reply) => {
     const {
       patient_pseudonym: patientPseudonym,

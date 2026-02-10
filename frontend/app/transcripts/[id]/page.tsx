@@ -1,13 +1,32 @@
 import AppHeader from "@/src/components/AppHeader";
 import { fetchTranscriptById } from "@/src/lib/backend";
+import { createSupabaseServerClient } from "@/src/lib/supabase/server";
 
 type Props = {
   params: { id: string } | Promise<{ id: string }>;
+  searchParams?: { from?: string | string[] } | Promise<{ from?: string | string[] }>;
 };
 
-export default async function TranscriptDetailPage({ params }: Props) {
+const getParamValue = (value: string | string[] | undefined) => {
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+  return value;
+};
+
+export default async function TranscriptDetailPage({ params, searchParams }: Props) {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { session }
+  } = await supabase.auth.getSession();
+  const accessToken = session?.access_token;
   const resolvedParams = await Promise.resolve(params);
-  const transcript = await fetchTranscriptById(resolvedParams.id);
+  const resolvedSearchParams = await Promise.resolve(searchParams);
+  const fromParam = getParamValue(resolvedSearchParams?.from);
+  const transcript = await fetchTranscriptById(resolvedParams.id, {
+    accessToken,
+    from: fromParam ?? null
+  });
 
   return (
     <div className="min-h-screen bg-slate-50">

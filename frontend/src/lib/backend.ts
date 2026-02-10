@@ -29,6 +29,7 @@ export async function fetchTranscriptsPage(params: {
   offset?: number;
   source?: string;
   patient_pseudonym?: string;
+  accessToken?: string;
 }) {
   const searchParams = new URLSearchParams();
   searchParams.set("limit", String(params.limit ?? 20));
@@ -42,9 +43,15 @@ export async function fetchTranscriptsPage(params: {
     searchParams.set("patient_pseudonym", params.patient_pseudonym);
   }
 
+  const headers = new Headers();
+
+  if (params.accessToken) {
+    headers.set("Authorization", `Bearer ${params.accessToken}`);
+  }
+
   const response = await fetch(
     `${getBackendBaseUrl()}/v1/transcripts?${searchParams.toString()}`,
-    { cache: "no-store" }
+    { cache: "no-store", headers }
   );
 
   if (!response.ok) {
@@ -54,10 +61,29 @@ export async function fetchTranscriptsPage(params: {
   return (await response.json()) as TranscriptListResponse;
 }
 
-export async function fetchTranscriptById(id: string) {
+export async function fetchTranscriptById(
+  id: string,
+  options?: { accessToken?: string; from?: string | null }
+) {
+  const headers = new Headers();
+
+  if (options?.accessToken) {
+    headers.set("Authorization", `Bearer ${options.accessToken}`);
+  }
+
+  const searchParams = new URLSearchParams();
+
+  if (options?.from) {
+    searchParams.set("from", options.from);
+  }
+
+  const querySuffix = searchParams.toString()
+    ? `?${searchParams.toString()}`
+    : "";
+
   const response = await fetch(
-    `${getBackendBaseUrl()}/v1/transcripts/${encodeURIComponent(id)}`,
-    { cache: "no-store" }
+    `${getBackendBaseUrl()}/v1/transcripts/${encodeURIComponent(id)}${querySuffix}`,
+    { cache: "no-store", headers }
   );
 
   if (!response.ok) {

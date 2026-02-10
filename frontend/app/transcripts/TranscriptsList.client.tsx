@@ -12,6 +12,7 @@ type Props = {
   initialItems: TranscriptListItem[];
   initialNextOffset: number | null;
   initialHasMore: boolean;
+  accessToken?: string;
   initialFilters?: {
     source?: string;
     patient_pseudonym?: string;
@@ -22,6 +23,7 @@ export default function TranscriptsList({
   initialItems,
   initialNextOffset,
   initialHasMore,
+  accessToken,
   initialFilters
 }: Props) {
   const router = useRouter();
@@ -68,7 +70,8 @@ export default function TranscriptsList({
         limit: 20,
         offset: nextOffset,
         source: serverSource || undefined,
-        patient_pseudonym: patientFilter || undefined
+        patient_pseudonym: patientFilter || undefined,
+        accessToken
       });
 
       setItems((prev) => [...prev, ...response.items]);
@@ -80,7 +83,7 @@ export default function TranscriptsList({
   };
 
   const handleRowClick = (id: string) => {
-    router.push(`/transcripts/${id}`);
+    router.push(`/transcripts/${id}?from=inbox`);
   };
 
   return (
@@ -152,7 +155,7 @@ export default function TranscriptsList({
                 <td className="px-4 py-3">
                   <Link
                     className="text-slate-900 underline"
-                    href={`/transcripts/${item.id}`}
+                    href={`/transcripts/${item.id}?from=inbox`}
                     onClick={(event) => event.stopPropagation()}
                   >
                     Open
