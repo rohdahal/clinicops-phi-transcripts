@@ -48,7 +48,13 @@ export default async function TranscriptDetailPage({ params, searchParams }: Pro
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <AppHeader subtitle="Transcript Detail" backHref="/transcripts" />
+      <AppHeader
+        backHref="/transcripts"
+        tabs={[
+          { href: "/dashboard", label: "Dashboard" },
+          { href: "/transcripts", label: "Transcript Inbox", active: true }
+        ]}
+      />
       <main className="mx-auto w-full max-w-4xl px-6 py-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="text-sm text-slate-600">

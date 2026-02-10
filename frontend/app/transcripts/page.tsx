@@ -41,7 +41,12 @@ export default async function TranscriptsPage({ searchParams }: PageProps) {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <AppHeader subtitle="Transcripts Inbox" />
+      <AppHeader
+        tabs={[
+          { href: "/dashboard", label: "Dashboard" },
+          { href: "/transcripts", label: "Transcript Inbox", active: true }
+        ]}
+      />
       <main className="mx-auto w-full max-w-5xl px-6 py-6">
         <section className="rounded-lg border border-slate-200 bg-white p-4">
           <h2 className="text-sm font-semibold text-slate-700">
