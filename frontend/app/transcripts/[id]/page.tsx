@@ -1,5 +1,10 @@
 import AppHeader from "@/src/components/AppHeader";
-import { fetchTranscriptById } from "@/src/lib/backend";
+import ProcessTranscriptModal from "./ProcessTranscriptModal.client";
+import {
+  fetchTranscriptArtifacts,
+  fetchTranscriptById,
+  getBackendBaseUrl
+} from "@/src/lib/backend";
 import { createSupabaseServerClient } from "@/src/lib/supabase/server";
 
 type Props = {
@@ -27,11 +32,43 @@ export default async function TranscriptDetailPage({ params, searchParams }: Pro
     accessToken,
     from: fromParam ?? null
   });
+  let approvedSummary = undefined;
+
+  try {
+    const artifacts = await fetchTranscriptArtifacts(resolvedParams.id, {
+      accessToken
+    });
+    approvedSummary = artifacts.find(
+      (artifact) =>
+        artifact.artifact_type === "summary" && artifact.status === "approved"
+    );
+  } catch {
+    approvedSummary = undefined;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50">
       <AppHeader subtitle="Transcript Detail" backHref="/transcripts" />
       <main className="mx-auto w-full max-w-4xl px-6 py-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="text-sm text-slate-600">
+            Status: {transcript.status ?? "pending"}
+          </div>
+          {accessToken ? (
+            <ProcessTranscriptModal
+              transcript={{
+                id: transcript.id,
+                created_at: transcript.created_at,
+                patient_pseudonym: transcript.patient_pseudonym,
+                source: transcript.source,
+                source_ref: transcript.source_ref,
+                status: transcript.status ?? null
+              }}
+              accessToken={accessToken}
+              backendBaseUrl={getBackendBaseUrl()}
+            />
+          ) : null}
+        </div>
 
         <section className="mt-6 rounded-lg border border-slate-200 bg-white p-6">
           <dl className="grid gap-4 sm:grid-cols-2">
@@ -74,6 +111,17 @@ export default async function TranscriptDetailPage({ params, searchParams }: Pro
             {transcript.redacted_text}
           </p>
         </section>
+
+        {approvedSummary ? (
+          <section className="mt-6 rounded-lg border border-slate-200 bg-white p-6">
+            <h2 className="text-sm font-semibold text-slate-700">
+              Approved Summary
+            </h2>
+            <p className="mt-3 whitespace-pre-wrap text-sm text-slate-800">
+              {approvedSummary.content}
+            </p>
+          </section>
+        ) : null}
 
         {transcript.meta ? (
           <section className="mt-6 rounded-lg border border-slate-200 bg-white p-6">

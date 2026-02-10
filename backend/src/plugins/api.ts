@@ -6,8 +6,8 @@ import { authUserPlugin } from "./authUser";
 export async function apiPlugin(app: FastifyInstance) {
   app.addHook("onRequest", async (_request, reply) => {
     reply.header("access-control-allow-origin", "*");
-    reply.header("access-control-allow-methods", "GET,OPTIONS");
-    reply.header("access-control-allow-headers", "content-type");
+    reply.header("access-control-allow-methods", "GET,POST,OPTIONS");
+    reply.header("access-control-allow-headers", "content-type,authorization");
   });
 
   app.options("*", async (_request, reply) => {

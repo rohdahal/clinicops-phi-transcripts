@@ -18,6 +18,20 @@ export type TranscriptDetail = TranscriptListItem & {
   redacted_text: string;
   meta: Record<string, unknown> | null;
   idempotency_key?: string | null;
+  status?: string | null;
+};
+
+export type TranscriptArtifact = {
+  id: string;
+  transcript_id: string;
+  created_at: string;
+  artifact_type: string;
+  model: string;
+  status: string;
+  content: string;
+  meta: Record<string, unknown> | null;
+  approved_at: string | null;
+  approved_by: string | null;
 };
 
 export function getBackendBaseUrl() {
@@ -91,4 +105,26 @@ export async function fetchTranscriptById(
   }
 
   return (await response.json()) as TranscriptDetail;
+}
+
+export async function fetchTranscriptArtifacts(
+  id: string,
+  options?: { accessToken?: string }
+) {
+  const headers = new Headers();
+
+  if (options?.accessToken) {
+    headers.set("Authorization", `Bearer ${options.accessToken}`);
+  }
+
+  const response = await fetch(
+    `${getBackendBaseUrl()}/v1/transcripts/${encodeURIComponent(id)}/artifacts`,
+    { cache: "no-store", headers }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to load artifacts (${response.status})`);
+  }
+
+  return (await response.json()) as TranscriptArtifact[];
 }
