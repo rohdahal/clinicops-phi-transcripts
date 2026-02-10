@@ -19,3 +19,12 @@ cd frontend
 npm install
 npm run dev
 ```
+
+## Backend transcript endpoints
+```bash
+curl http://localhost:3001/v1/transcripts
+curl http://localhost:3001/v1/transcripts/<uuid>
+curl -X POST http://localhost:3001/v1/transcripts \
+  -H "content-type: application/json" \
+  -d '{"patient_pseudonym":"PT-1029","source":"call","text":"hello","idempotency_key":"demo_1"}'
+```

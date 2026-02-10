@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { healthRoutes } from "../routes/health.routes";
+import { transcriptsRoutes } from "../routes/transcripts.routes";
 
 export async function apiPlugin(app: FastifyInstance) {
   app.addHook("onRequest", async (_request, reply) => {
@@ -13,4 +14,5 @@ export async function apiPlugin(app: FastifyInstance) {
   });
 
   app.register(healthRoutes);
+  app.register(transcriptsRoutes, { prefix: "/v1" });
 }
