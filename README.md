@@ -1,31 +1,29 @@
 # ClinicOps PHI Transcript Ops
 
-Clinic operations console for transcript review and follow-up execution.  
+Lightweight operations console for reviewing transcripts, generating summaries, and managing follow-up leads in clinical workflows. 
 
-## Features
-- Transcript inbox and transcript detail review.
-- Unified **Process transcript** flow (LLM summary + lead generation).
-- Lead command center on dashboard with follow-up actions.
-- Per-transcript lead panel for regeneration and status updates.
-- Audit logging for transcript operations and processing actions.
+## What it does
 
-## Processing workflow
-- Open a transcript detail page and run **Process transcript**.
-- Select model, process, then review generated summary + lead output.
-- Approve to mark transcript as processed.
-- If needed, regenerate leads from transcript detail with a chosen model.
+ClinicOps helps teams turn raw transcripts into actionable next steps.
 
-## Lead rules
-- One lead per transcript (`transcript_id` is unique in `lead_opportunities`).
-- Regeneration updates existing lead via upsert (no duplicate lead rows).
-- Lead generation model is persisted in `lead_opportunities.model`.
-- `next_action` is provider-side follow-up focused on revisit intent.
+- Review transcripts in a unified inbox
+- Generate LLM-powered summaries
+- Extract and track potential follow-up leads
+- Manage lead status and provider-side next actions
+- Maintain a full audit trail of processing activity
+
+## Core workflow
+1. Open a transcript from the inbox
+2. Run **Process transcript** (summary + lead generation)
+3. Review generated output
+4. Approve to mark the transcript as processed
+5. Regenerate leads if needed using a different model
 
 ## Where work happens
 - **Dashboard**: lead command center and follow-up queue.
-- **Transcript detail**: process flow, generated summary, lead panel, and lead status actions.
+- **Transcript detail**: processing flow, summary, lead panel, and status updates
 
-## Vision
+## Design intent
 
 ClinicOps is designed to evolve from transcript review into an
 LLM-orchestrated follow-up system for clinical operations.
