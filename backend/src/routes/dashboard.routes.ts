@@ -48,18 +48,48 @@ export async function dashboardRoutes(app: FastifyInstance) {
       .order("created_at", { ascending: false })
       .limit(10);
 
+    const followupStatuses = ["open", "in_progress", "contacted", "qualified"];
+
+    const leadsOpenPromise = supabaseAdmin
+      .from("lead_opportunities")
+      .select("id", { count: "exact", head: true })
+      .in("status", followupStatuses);
+
+    const leadsOverduePromise = supabaseAdmin
+      .from("lead_opportunities")
+      .select("id", { count: "exact", head: true })
+      .in("status", followupStatuses)
+      .not("due_at", "is", null)
+      .lt("due_at", new Date().toISOString());
+
+    const leadsQueuePromise = supabaseAdmin
+      .from("lead_opportunities")
+      .select(
+        "id,created_at,transcript_id,title,reason,next_action,lead_score,status,due_at,transcripts(patient_pseudonym,source)"
+      )
+      .in("status", followupStatuses)
+      .order("lead_score", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(15);
+
     const [
       inboxRes,
       processedRes,
       approvedRes,
       activityRes,
-      recentActivityRes
+      recentActivityRes,
+      leadsOpenRes,
+      leadsOverdueRes,
+      leadsQueueRes
     ] = await Promise.all([
       inboxPromise,
       processedPromise,
       approvedPromise,
       activityPromise,
-      recentActivityPromise
+      recentActivityPromise,
+      leadsOpenPromise,
+      leadsOverduePromise,
+      leadsQueuePromise
     ]);
 
     if (
@@ -67,7 +97,10 @@ export async function dashboardRoutes(app: FastifyInstance) {
       processedRes.error ||
       approvedRes.error ||
       activityRes.error ||
-      recentActivityRes.error
+      recentActivityRes.error ||
+      leadsOpenRes.error ||
+      leadsOverdueRes.error ||
+      leadsQueueRes.error
     ) {
       reply.code(500);
       return { error: "supabase_error" };
@@ -91,9 +124,12 @@ export async function dashboardRoutes(app: FastifyInstance) {
       inbox_new: inboxRes.count ?? 0,
       processed: processedRes.count ?? 0,
       approved_summaries: approvedRes.count ?? 0,
+      leads_followup_open: leadsOpenRes.count ?? 0,
+      leads_followup_overdue: leadsOverdueRes.count ?? 0,
       viewed_last_7d: days.map((day) => ({ day, count: viewedCounts.get(day) ?? 0 })),
       processed_last_7d: days.map((day) => ({ day, count: processedCounts.get(day) ?? 0 })),
-      recent_activity: recentActivityRes.data ?? []
+      recent_activity: recentActivityRes.data ?? [],
+      leads_queue: leadsQueueRes.data ?? []
     };
   });
 }

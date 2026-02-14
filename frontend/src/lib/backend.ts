@@ -34,6 +34,24 @@ export type TranscriptArtifact = {
   approved_by: string | null;
 };
 
+export type LeadOpportunity = {
+  id: string;
+  created_at: string;
+  transcript_id: string;
+  source_artifact_id: string | null;
+  model: string;
+  title: string;
+  reason: string;
+  next_action: string;
+  lead_score: number;
+  status: string;
+  owner_user_id: string | null;
+  due_at: string | null;
+  last_contacted_at: string | null;
+  notes: string | null;
+  meta: Record<string, unknown> | null;
+};
+
 export function getBackendBaseUrl() {
   return process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3001";
 }
@@ -127,4 +145,26 @@ export async function fetchTranscriptArtifacts(
   }
 
   return (await response.json()) as TranscriptArtifact[];
+}
+
+export async function fetchTranscriptLeads(
+  id: string,
+  options?: { accessToken?: string }
+) {
+  const headers = new Headers();
+
+  if (options?.accessToken) {
+    headers.set("Authorization", `Bearer ${options.accessToken}`);
+  }
+
+  const response = await fetch(
+    `${getBackendBaseUrl()}/v1/transcripts/${encodeURIComponent(id)}/leads`,
+    { cache: "no-store", headers }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to load leads (${response.status})`);
+  }
+
+  return (await response.json()) as LeadOpportunity[];
 }

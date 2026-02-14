@@ -1,8 +1,11 @@
 import AppHeader from "@/src/components/AppHeader";
 import ProcessTranscriptModal from "./ProcessTranscriptModal.client";
+import TranscriptLeadsPanel from "./TranscriptLeadsPanel.client";
 import {
   fetchTranscriptArtifacts,
   fetchTranscriptById,
+  fetchTranscriptLeads,
+  type TranscriptArtifact,
   getBackendBaseUrl
 } from "@/src/lib/backend";
 import { createSupabaseServerClient } from "@/src/lib/supabase/server";
@@ -32,22 +35,37 @@ export default async function TranscriptDetailPage({ params, searchParams }: Pro
     accessToken,
     from: fromParam ?? null
   });
-  let approvedSummary = undefined;
+  const leads = accessToken
+    ? await fetchTranscriptLeads(resolvedParams.id, { accessToken }).catch(() => [])
+    : [];
+  let approvedSummary: TranscriptArtifact | undefined;
+  let latestSummary: TranscriptArtifact | undefined;
 
   try {
     const artifacts = await fetchTranscriptArtifacts(resolvedParams.id, {
       accessToken
     });
+    latestSummary = artifacts.find((artifact) => artifact.artifact_type === "summary");
     approvedSummary = artifacts.find(
       (artifact) =>
         artifact.artifact_type === "summary" && artifact.status === "approved"
     );
   } catch {
     approvedSummary = undefined;
+    latestSummary = undefined;
   }
 
+  const leadModel =
+    leads[0]?.model === "qwen2.5:1.5b" || leads[0]?.model === "llama3.2:1b"
+      ? leads[0].model
+      : approvedSummary?.model === "qwen2.5:1.5b" || approvedSummary?.model === "llama3.2:1b"
+      ? approvedSummary.model
+      : latestSummary?.model === "qwen2.5:1.5b" || latestSummary?.model === "llama3.2:1b"
+        ? latestSummary.model
+        : null;
+
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-gradient-to-b from-slate-100 via-white to-slate-50">
       <AppHeader
         backHref="/transcripts"
         tabs={[
@@ -56,27 +74,7 @@ export default async function TranscriptDetailPage({ params, searchParams }: Pro
         ]}
       />
       <main className="mx-auto w-full max-w-4xl px-6 py-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="text-sm text-slate-600">
-            Status: {transcript.status ?? "pending"}
-          </div>
-          {accessToken ? (
-            <ProcessTranscriptModal
-              transcript={{
-                id: transcript.id,
-                created_at: transcript.created_at,
-                patient_pseudonym: transcript.patient_pseudonym,
-                source: transcript.source,
-                source_ref: transcript.source_ref,
-                status: transcript.status ?? null
-              }}
-              accessToken={accessToken}
-              backendBaseUrl={getBackendBaseUrl()}
-            />
-          ) : null}
-        </div>
-
-        <section className="mt-6 rounded-lg border border-slate-200 bg-white p-6">
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <dl className="grid gap-4 sm:grid-cols-2">
             <div>
               <dt className="text-xs font-semibold uppercase text-slate-500">
@@ -102,24 +100,59 @@ export default async function TranscriptDetailPage({ params, searchParams }: Pro
             </div>
             <div>
               <dt className="text-xs font-semibold uppercase text-slate-500">
+                Lead Opportunities
+              </dt>
+              <dd className="mt-1 text-sm text-slate-900">{leads.length}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold uppercase text-slate-500">
                 Created
               </dt>
               <dd className="mt-1 text-sm text-slate-900">
                 {new Date(transcript.created_at).toLocaleString()}
               </dd>
             </div>
+            <div>
+              <dt className="text-xs font-semibold uppercase text-slate-500">
+                Status
+              </dt>
+              <dd className="mt-1 text-sm text-slate-900">
+                {transcript.status ?? "pending"}
+              </dd>
+            </div>
           </dl>
+          {accessToken ? (
+            <div className="mt-4">
+              <ProcessTranscriptModal
+                transcript={{
+                  id: transcript.id,
+                  created_at: transcript.created_at,
+                  patient_pseudonym: transcript.patient_pseudonym,
+                  source: transcript.source,
+                  source_ref: transcript.source_ref,
+                  status: transcript.status ?? null
+                }}
+                accessToken={accessToken}
+                backendBaseUrl={getBackendBaseUrl()}
+              />
+            </div>
+          ) : null}
         </section>
 
-        <section className="mt-6 rounded-lg border border-slate-200 bg-white p-6">
-          <h2 className="text-sm font-semibold text-slate-700">Redacted Text</h2>
-          <p className="mt-3 whitespace-pre-wrap text-sm text-slate-800">
-            {transcript.redacted_text}
-          </p>
-        </section>
+        {accessToken ? (
+          <div className="mt-6">
+            <TranscriptLeadsPanel
+              transcriptId={transcript.id}
+              leads={leads}
+              accessToken={accessToken}
+              backendBaseUrl={getBackendBaseUrl()}
+              initialModel={leadModel}
+            />
+          </div>
+        ) : null}
 
         {approvedSummary ? (
-          <section className="mt-6 rounded-lg border border-slate-200 bg-white p-6">
+          <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-sm font-semibold text-slate-700">
               Approved Summary
             </h2>
@@ -129,14 +162,12 @@ export default async function TranscriptDetailPage({ params, searchParams }: Pro
           </section>
         ) : null}
 
-        {transcript.meta ? (
-          <section className="mt-6 rounded-lg border border-slate-200 bg-white p-6">
-            <h2 className="text-sm font-semibold text-slate-700">Meta</h2>
-            <pre className="mt-3 whitespace-pre-wrap rounded-md bg-slate-50 p-4 text-xs text-slate-700">
-              {JSON.stringify(transcript.meta, null, 2)}
-            </pre>
-          </section>
-        ) : null}
+        <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-sm font-semibold text-slate-700">Transcript Text</h2>
+          <p className="mt-3 whitespace-pre-wrap text-sm text-slate-800">
+            {transcript.redacted_text}
+          </p>
+        </section>
       </main>
     </div>
   );

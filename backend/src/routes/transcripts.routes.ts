@@ -1,7 +1,9 @@
 import type { FastifyInstance } from "fastify";
 import { logAuditEvent } from "../lib/audit";
 import {
+  type AllowedModel,
   assertAllowedModel,
+  ollamaGenerateLeadOpportunities,
   ollamaGenerateSummary,
   ollamaWarmup
 } from "../lib/ollama";
@@ -35,6 +37,73 @@ type ModelBody = {
 type ProcessBody = {
   artifact_id?: string;
 };
+
+type LeadStatus =
+  | "open"
+  | "in_progress"
+  | "contacted"
+  | "qualified"
+  | "closed_won"
+  | "closed_lost"
+  | "dismissed"
+  | "superseded";
+
+const leadStatusRank: Record<LeadStatus, number> = {
+  open: 0,
+  in_progress: 1,
+  contacted: 2,
+  qualified: 3,
+  closed_won: 4,
+  closed_lost: 5,
+  dismissed: 6,
+  superseded: 7
+};
+
+const addDaysIso = (days: number) => {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString();
+};
+
+async function createLeadsFromAi(params: {
+  transcriptId: string;
+  sourceArtifactId: string | null;
+  model: AllowedModel;
+  redactedText: string;
+}) {
+  const leadResult = await ollamaGenerateLeadOpportunities(params.model, params.redactedText);
+
+  if (leadResult.items.length === 0) {
+    return { count: 0, latency_ms: leadResult.latency_ms };
+  }
+
+  const item = leadResult.items[0];
+  const row = {
+    transcript_id: params.transcriptId,
+    source_artifact_id: params.sourceArtifactId,
+    model: params.model,
+    title: item.title,
+    reason: item.reason,
+    next_action: item.next_action,
+    lead_score: item.lead_score,
+    status: "open",
+    due_at: addDaysIso(item.due_in_days),
+    meta: {
+      origin: "ai",
+      model: params.model,
+      latency_ms: leadResult.latency_ms
+    }
+  };
+
+  const { error } = await supabaseAdmin
+    .from("lead_opportunities")
+    .upsert(row, { onConflict: "transcript_id" });
+  if (error) {
+    throw new Error("supabase_error");
+  }
+
+  return { count: 1, latency_ms: leadResult.latency_ms };
+}
 
 export async function transcriptsRoutes(app: FastifyInstance) {
   app.get<{ Querystring: TranscriptQuery }>(
@@ -224,7 +293,92 @@ export async function transcriptsRoutes(app: FastifyInstance) {
         details: { model, artifact_id: artifact.id }
       });
 
-      return artifact;
+      let leadCount = 0;
+
+      try {
+        const leads = await createLeadsFromAi({
+          transcriptId: transcript.id,
+          sourceArtifactId: artifact.id,
+          model,
+          redactedText: transcript.redacted_text
+        });
+        leadCount = leads.count;
+
+        await logAuditEvent({
+          entity_type: "transcript",
+          entity_id: transcript.id,
+          actor_type: "user",
+          actor_display: request.user!.email,
+          actor_id: request.user!.id,
+          action: "ai.leads_generated",
+          details: { model, artifact_id: artifact.id, lead_count: leadCount }
+        });
+      } catch (error) {
+        console.error("Lead generation failed", error);
+      }
+
+      return { ...artifact, lead_count: leadCount };
+    }
+  );
+
+  app.post<{ Params: { id: string }; Body: ModelBody }>(
+    "/transcripts/:id/ai/leads",
+    { preHandler: authUser },
+    async (request, reply) => {
+      const model = request.body?.model;
+
+      if (!model) {
+        reply.code(400);
+        return { error: "missing_model" };
+      }
+
+      try {
+        assertAllowedModel(model);
+      } catch (error) {
+        reply.code(400);
+        return { error: "model_not_allowed" };
+      }
+
+      const { data: transcript, error: transcriptError } = await supabaseAdmin
+        .from("transcripts")
+        .select("id,redacted_text")
+        .eq("id", request.params.id)
+        .maybeSingle();
+
+      if (transcriptError) {
+        reply.code(500);
+        return { error: "supabase_error" };
+      }
+
+      if (!transcript) {
+        reply.code(404);
+        return { error: "not_found" };
+      }
+
+      try {
+        const result = await createLeadsFromAi({
+          transcriptId: transcript.id,
+          sourceArtifactId: null,
+          model,
+          redactedText: transcript.redacted_text
+        });
+
+        await logAuditEvent({
+          entity_type: "transcript",
+          entity_id: transcript.id,
+          actor_type: "user",
+          actor_display: request.user!.email,
+          actor_id: request.user!.id,
+          action: "ai.leads_generated",
+          details: { model, lead_count: result.count, manual: true }
+        });
+
+        return { ok: true, lead_count: result.count };
+      } catch (error) {
+        console.error("Ollama leads failed", error);
+        reply.code(502);
+        return { error: "ollama_unavailable" };
+      }
     }
   );
 
@@ -313,6 +467,34 @@ export async function transcriptsRoutes(app: FastifyInstance) {
       }
 
       return data ?? [];
+    }
+  );
+
+  app.get<{ Params: { id: string } }>(
+    "/transcripts/:id/leads",
+    { preHandler: authUser },
+    async (request, reply) => {
+      const { data, error } = await supabaseAdmin
+        .from("lead_opportunities")
+        .select("*")
+        .eq("transcript_id", request.params.id)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        reply.code(500);
+        return { error: "supabase_error" };
+      }
+
+      const sorted = (data ?? []).sort((a, b) => {
+        const rankA = leadStatusRank[(a.status as LeadStatus) ?? "open"] ?? 99;
+        const rankB = leadStatusRank[(b.status as LeadStatus) ?? "open"] ?? 99;
+        if (rankA !== rankB) {
+          return rankA - rankB;
+        }
+        return (Number(b.lead_score) || 0) - (Number(a.lead_score) || 0);
+      });
+
+      return sorted;
     }
   );
 

@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { healthRoutes } from "../routes/health.routes";
 import { transcriptsRoutes } from "../routes/transcripts.routes";
 import { dashboardRoutes } from "../routes/dashboard.routes";
+import { leadsRoutes } from "../routes/leads.routes";
 import { authUserPlugin } from "./authUser";
 
 export async function apiPlugin(app: FastifyInstance) {
@@ -19,4 +20,5 @@ export async function apiPlugin(app: FastifyInstance) {
   app.register(healthRoutes);
   app.register(dashboardRoutes, { prefix: "/v1" });
   app.register(transcriptsRoutes, { prefix: "/v1" });
+  app.register(leadsRoutes, { prefix: "/v1" });
 }

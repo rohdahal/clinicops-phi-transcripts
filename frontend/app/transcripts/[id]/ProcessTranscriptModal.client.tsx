@@ -19,6 +19,15 @@ type Artifact = {
   status: string;
 };
 
+type LeadItem = {
+  id: string;
+  title: string;
+  reason: string;
+  next_action: string;
+  lead_score: number;
+  status: string;
+};
+
 type Props = {
   transcript: TranscriptMeta;
   accessToken: string;
@@ -40,6 +49,7 @@ export default function ProcessTranscriptModal({
   const [selectedModel, setSelectedModel] = useState<ModelOption>("");
   const [warmupState, setWarmupState] = useState<WarmupState>("idle");
   const [summaryArtifact, setSummaryArtifact] = useState<Artifact | null>(null);
+  const [leadItems, setLeadItems] = useState<LeadItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitState, setSubmitState] = useState<"idle" | "loading">("idle");
   const [ellipsis, setEllipsis] = useState(".");
@@ -49,6 +59,7 @@ export default function ProcessTranscriptModal({
     setSelectedModel("");
     setWarmupState("idle");
     setSummaryArtifact(null);
+    setLeadItems([]);
     setError(null);
     setSubmitState("idle");
   };
@@ -71,6 +82,7 @@ export default function ProcessTranscriptModal({
 
       setWarmupState("loading");
       setSummaryArtifact(null);
+      setLeadItems([]);
       setError(null);
 
       try {
@@ -120,7 +132,7 @@ export default function ProcessTranscriptModal({
     return () => clearInterval(interval);
   }, [warmupState, submitState]);
 
-  const handleGenerate = async () => {
+  const handleProcess = async () => {
     if (!selectedModel) {
       return;
     }
@@ -156,8 +168,26 @@ export default function ProcessTranscriptModal({
 
       const data = (await response.json()) as Artifact;
       setSummaryArtifact(data);
+
+      const leadsResponse = await fetch(
+        `${backendBaseUrl}/v1/transcripts/${transcript.id}/leads`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          }
+        }
+      );
+
+      if (leadsResponse.ok) {
+        const leads = (await leadsResponse.json()) as LeadItem[];
+        setLeadItems(leads);
+      } else {
+        setLeadItems([]);
+      }
+
+      setStep(3);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Summary failed";
+      const message = err instanceof Error ? err.message : "Processing failed";
       setError(message);
     } finally {
       setSubmitState("idle");
@@ -280,16 +310,6 @@ export default function ProcessTranscriptModal({
 
               {step === 3 ? (
                 <div className="space-y-3 text-sm text-slate-700">
-                  <button
-                    type="button"
-                    onClick={handleGenerate}
-                    disabled={submitState === "loading" || !selectedModel}
-                    className="rounded-md border border-slate-200 px-4 py-2 text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {submitState === "loading"
-                      ? `Generating${ellipsis}`
-                      : "Generate summary"}
-                  </button>
                   {summaryArtifact ? (
                     <div className="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800">
                       <p className="text-xs font-semibold uppercase text-slate-500">
@@ -300,6 +320,30 @@ export default function ProcessTranscriptModal({
                       </p>
                     </div>
                   ) : null}
+                  <div className="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800">
+                    <p className="text-xs font-semibold uppercase text-slate-500">
+                      Lead Opportunities
+                    </p>
+                    {leadItems.length === 0 ? (
+                      <p className="mt-2 text-sm text-slate-600">
+                        No lead opportunities generated.
+                      </p>
+                    ) : (
+                      <div className="mt-2 space-y-3">
+                        {leadItems.map((lead) => (
+                          <div key={lead.id} className="rounded-md border border-slate-200 bg-white p-3">
+                            <p className="font-medium text-slate-900">
+                              {lead.title} ({Math.round(lead.lead_score * 100)}%)
+                            </p>
+                            <p className="mt-1 text-slate-700">{lead.reason}</p>
+                            <p className="mt-1 text-xs text-slate-600">
+                              Next action: {lead.next_action}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : null}
             </div>
@@ -318,14 +362,23 @@ export default function ProcessTranscriptModal({
                 Back
               </button>
               <div className="flex items-center gap-2">
-                {step < 3 ? (
+                {step === 1 ? (
                   <button
                     type="button"
                     onClick={() => setStep((prev) => Math.min(3, prev + 1) as Step)}
-                    disabled={step === 2 && warmupState !== "ready"}
+                    disabled={false}
                     className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Next
+                  </button>
+                ) : step === 2 ? (
+                  <button
+                    type="button"
+                    onClick={handleProcess}
+                    disabled={warmupState !== "ready" || submitState === "loading"}
+                    className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {submitState === "loading" ? `Processing${ellipsis}` : "Process"}
                   </button>
                 ) : (
                   <button
