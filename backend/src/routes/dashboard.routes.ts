@@ -91,26 +91,28 @@ export async function dashboardRoutes(app: FastifyInstance) {
       leadsOverduePromise,
       leadsQueuePromise
     ]);
-
-    if (
-      inboxRes.error ||
-      processedRes.error ||
-      approvedRes.error ||
-      activityRes.error ||
-      recentActivityRes.error ||
-      leadsOpenRes.error ||
-      leadsOverdueRes.error ||
+    const queryErrors = [
+      inboxRes.error,
+      processedRes.error,
+      approvedRes.error,
+      activityRes.error,
+      recentActivityRes.error,
+      leadsOpenRes.error,
+      leadsOverdueRes.error,
       leadsQueueRes.error
-    ) {
-      reply.code(500);
-      return { error: "supabase_error" };
+    ].filter(Boolean);
+    if (queryErrors.length > 0) {
+      request.log.warn(
+        { queryErrors },
+        "dashboard metrics degraded to empty state due to supabase query errors"
+      );
     }
 
     const days = buildLast7Days();
     const viewedCounts = new Map(days.map((day) => [day, 0]));
     const processedCounts = new Map(days.map((day) => [day, 0]));
 
-    for (const event of activityRes.data ?? []) {
+    for (const event of activityRes.error ? [] : (activityRes.data ?? [])) {
       const day = formatDay(new Date(event.created_at));
       if (event.action === "transcript.viewed") {
         viewedCounts.set(day, (viewedCounts.get(day) ?? 0) + 1);
@@ -121,15 +123,15 @@ export async function dashboardRoutes(app: FastifyInstance) {
     }
 
     return {
-      inbox_new: inboxRes.count ?? 0,
-      processed: processedRes.count ?? 0,
-      approved_summaries: approvedRes.count ?? 0,
-      leads_followup_open: leadsOpenRes.count ?? 0,
-      leads_followup_overdue: leadsOverdueRes.count ?? 0,
+      inbox_new: inboxRes.error ? 0 : (inboxRes.count ?? 0),
+      processed: processedRes.error ? 0 : (processedRes.count ?? 0),
+      approved_summaries: approvedRes.error ? 0 : (approvedRes.count ?? 0),
+      leads_followup_open: leadsOpenRes.error ? 0 : (leadsOpenRes.count ?? 0),
+      leads_followup_overdue: leadsOverdueRes.error ? 0 : (leadsOverdueRes.count ?? 0),
       viewed_last_7d: days.map((day) => ({ day, count: viewedCounts.get(day) ?? 0 })),
       processed_last_7d: days.map((day) => ({ day, count: processedCounts.get(day) ?? 0 })),
-      recent_activity: recentActivityRes.data ?? [],
-      leads_queue: leadsQueueRes.data ?? []
+      recent_activity: recentActivityRes.error ? [] : (recentActivityRes.data ?? []),
+      leads_queue: leadsQueueRes.error ? [] : (leadsQueueRes.data ?? [])
     };
   });
 }

@@ -25,7 +25,16 @@ create table if not exists public.transcript_artifacts (
 create index if not exists transcript_artifacts_transcript_idx
   on public.transcript_artifacts (transcript_id, created_at desc);
 
-alter table public.transcript_artifacts
-  add constraint transcript_artifacts_transcript_fk
-  foreign key (transcript_id) references public.transcripts (id)
-  on delete cascade;
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'transcript_artifacts_transcript_fk'
+  ) then
+    alter table public.transcript_artifacts
+      add constraint transcript_artifacts_transcript_fk
+      foreign key (transcript_id) references public.transcripts (id)
+      on delete cascade;
+  end if;
+end $$;

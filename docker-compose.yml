@@ -7,5 +7,16 @@ services:
     volumes:
       - ollama:/root/.ollama
 
+  pg-client:
+    image: postgres:16-alpine
+    container_name: clinicops-pg-client
+    working_dir: /workspace/backend
+    command: ["sh", "-c", "sleep infinity"]
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    volumes:
+      - ./:/workspace
+
 volumes:
   ollama:

@@ -18,7 +18,16 @@ create table if not exists public.audit_events (
 create index if not exists audit_events_entity_idx
   on public.audit_events (entity_type, entity_id, created_at desc);
 
-alter table public.audit_events
-  add constraint audit_events_transcript_fk
-  foreign key (entity_id) references public.transcripts (id)
-  on delete cascade;
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'audit_events_transcript_fk'
+  ) then
+    alter table public.audit_events
+      add constraint audit_events_transcript_fk
+      foreign key (entity_id) references public.transcripts (id)
+      on delete cascade;
+  end if;
+end $$;
