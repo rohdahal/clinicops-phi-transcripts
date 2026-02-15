@@ -65,7 +65,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
     const leadsQueuePromise = supabaseAdmin
       .from("lead_opportunities")
       .select(
-        "id,created_at,transcript_id,title,reason,next_action,lead_score,status,due_at,transcripts(patient_pseudonym,source)"
+        "id,created_at,transcript_id,title,reason,next_action,lead_score,status,due_at,transcripts(patient_id,patient_pseudonym,source)"
       )
       .in("status", followupStatuses)
       .order("lead_score", { ascending: false })

@@ -32,7 +32,6 @@ type PatientRow = {
   phone_masked?: string | null;
   phone_verified?: boolean;
   preferred_channel?: "phone" | "email" | "sms" | "none";
-  contact_ok?: boolean;
   consent_status?: "unknown" | "granted" | "revoked" | "pending";
   consent_source?: string | null;
   consent_at?: string | null;

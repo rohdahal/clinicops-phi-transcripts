@@ -58,11 +58,12 @@ docker exec -it clinicops-ollama ollama pull llama3.2:1b
 ```
 
 ## Seed demo data
-`npm run seed` always loads sample transcript, artifact, lead, and audit rows.
+`npm run seed` always loads sample patient, transcript, artifact, lead, and audit rows.
 
 Schema setup choices:
 - Option A: Create tables manually in Supabase SQL Editor (run in this order to satisfy foreign keys):
   - `backend/sql/transcripts.sql`
+  - `backend/sql/patients.sql`
   - `backend/sql/transcript_artifacts.sql`
   - `backend/sql/audit_events.sql`
   - `backend/sql/lead_opportunities.sql`
@@ -93,10 +94,16 @@ Notes:
   - Method: `Session Pooler`
 - When `SUPABASE_DB_URL` is present, `npm run seed` executes:
   - `backend/sql/transcripts.sql`
+  - `backend/sql/patients.sql`
   - `backend/sql/transcript_artifacts.sql`
   - `backend/sql/audit_events.sql`
   - `backend/sql/lead_opportunities.sql`
-  - then JSON seed upserts from `backend/seed/demo-seed.json`
+  - then JSON seed upserts from `backend/seed/demo-seed.json` in this order:
+    - `patients`
+    - `transcripts` (linked to `patients` via `patient_id`)
+    - `transcript_artifacts`
+    - `lead_opportunities`
+    - `audit_events`
 - When `SUPABASE_DB_URL` is missing, `npm run seed` skips SQL files and only attempts JSON seed upserts (tables must already exist).
 - The script is idempotent (`upsert`) and safe to rerun.
 - For SQL bootstrap, seed uses local `psql` if available; otherwise it falls back to `docker compose exec pg-client psql`.

@@ -19,7 +19,6 @@ create table if not exists public.patients (
   phone_verified boolean not null default false,
 
   preferred_channel text not null default 'phone',
-  contact_ok boolean not null default true,
 
   consent_status text not null default 'unknown',
   consent_source text,

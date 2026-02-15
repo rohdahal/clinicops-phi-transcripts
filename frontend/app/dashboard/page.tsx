@@ -30,8 +30,8 @@ type MetricsResponse = {
     status: string;
     due_at: string | null;
     transcripts?:
-      | { patient_pseudonym?: string | null; source?: string | null }
-      | Array<{ patient_pseudonym?: string | null; source?: string | null }>
+      | { patient_id?: string | null; patient_pseudonym?: string | null; source?: string | null }
+      | Array<{ patient_id?: string | null; patient_pseudonym?: string | null; source?: string | null }>
       | null;
   }>;
 };

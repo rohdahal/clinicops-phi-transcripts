@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
 
 type LeadRow = {
   id: string;
@@ -14,8 +15,8 @@ type LeadRow = {
   status: string;
   due_at: string | null;
   transcripts?:
-    | { patient_pseudonym?: string | null; source?: string | null }
-    | Array<{ patient_pseudonym?: string | null; source?: string | null }>
+    | { patient_id?: string | null; patient_pseudonym?: string | null; source?: string | null }
+    | Array<{ patient_id?: string | null; patient_pseudonym?: string | null; source?: string | null }>
     | null;
 };
 
@@ -24,6 +25,31 @@ type Props = {
   accessToken: string;
   backendBaseUrl: string;
   mode?: "dashboard" | "transcript";
+};
+
+type PatientProfileData = {
+  patient: {
+    id: string;
+    pseudonym: string;
+    display_name: string;
+    patient_profile_image_url: string | null;
+    email_masked: string | null;
+    email_verified: boolean;
+    phone_masked: string | null;
+    phone_verified: boolean;
+    preferred_channel: string;
+    consent_status: string;
+  };
+  latest_interaction: {
+    transcript_id: string;
+    transcript_created_at: string;
+    lead_id: string | null;
+    lead_status: string | null;
+  } | null;
+  recent: {
+    transcript_count: number;
+    lead_count: number;
+  };
 };
 
 const statusTone: Record<string, string> = {
@@ -51,6 +77,17 @@ const getScoreTier = (score: number) => {
   return { label: "Low", dotClass: "bg-slate-400" };
 };
 
+const getInitials = (value: string) => {
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) {
+    return "?";
+  }
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+};
+
 export default function LeadsQueue({
   leads,
   accessToken,
@@ -64,6 +101,11 @@ export default function LeadsQueue({
   const [filter, setFilter] = useState<"active" | "overdue" | "all">("active");
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState<"priority" | "due_soon" | "newest">("priority");
+  const [selectedPatient, setSelectedPatient] = useState<PatientProfileData | null>(null);
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+  const [patientLoading, setPatientLoading] = useState(false);
+  const [patientError, setPatientError] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     if (!openMenuLeadId) {
@@ -83,6 +125,23 @@ export default function LeadsQueue({
       document.removeEventListener("mousedown", handleDocumentClick);
     };
   }, [openMenuLeadId]);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedPatientId) {
+      return;
+    }
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [selectedPatientId]);
 
   const filteredLeads = useMemo(() => {
     let items = [...leads];
@@ -158,6 +217,31 @@ export default function LeadsQueue({
       setError(err instanceof Error ? err.message : "Failed to update lead");
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  const openPatientModal = async (patientId: string) => {
+    setSelectedPatientId(patientId);
+    setPatientLoading(true);
+    setPatientError(null);
+    setSelectedPatient(null);
+
+    try {
+      const response = await fetch(`${backendBaseUrl}/v1/patients/${encodeURIComponent(patientId)}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        cache: "no-store"
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to load patient (${response.status})`);
+      }
+
+      const payload = (await response.json()) as PatientProfileData;
+      setSelectedPatient(payload);
+    } catch (err) {
+      setPatientError(err instanceof Error ? err.message : "Failed to load patient");
+    } finally {
+      setPatientLoading(false);
     }
   };
 
@@ -329,9 +413,22 @@ export default function LeadsQueue({
                   {mode === "dashboard" ? (
                     <>
                       {" · "}
-                      <a className="font-medium text-slate-700 underline" href={`/transcripts/${lead.transcript_id}?from=dashboard`}>
-                        {transcriptMeta?.patient_pseudonym ?? lead.transcript_id}
-                      </a>
+                      {transcriptMeta?.patient_id ? (
+                        <button
+                          type="button"
+                          onClick={() => void openPatientModal(transcriptMeta.patient_id!)}
+                          className="font-medium text-slate-700 underline"
+                        >
+                          {transcriptMeta?.patient_pseudonym ?? lead.transcript_id}
+                        </button>
+                      ) : (
+                        <a
+                          className="font-medium text-slate-700 underline"
+                          href={`/transcripts/${lead.transcript_id}?from=dashboard`}
+                        >
+                          {transcriptMeta?.patient_pseudonym ?? lead.transcript_id}
+                        </a>
+                      )}
                     </>
                   ) : null}
                 </div>
@@ -373,6 +470,152 @@ export default function LeadsQueue({
 
         {error ? <p className="text-sm font-medium text-slate-700">{error}</p> : null}
       </div>
+
+      {isClient && selectedPatientId
+        ? createPortal(
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/35 p-4"
+          onClick={() => setSelectedPatientId(null)}
+        >
+          <div
+            className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-5 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold text-slate-900">Patient profile</h3>
+              <button
+                type="button"
+                className="text-sm font-medium text-slate-600 hover:text-slate-900"
+                onClick={() => setSelectedPatientId(null)}
+              >
+                Close
+              </button>
+            </div>
+            {patientLoading ? <p className="mt-3 text-sm text-slate-600">Loading patient...</p> : null}
+            {patientError ? <p className="mt-3 text-sm font-medium text-slate-700">{patientError}</p> : null}
+            {selectedPatient && !patientLoading ? (
+              <div className="mt-4">
+                <div className="mb-3 flex justify-center">
+                  {selectedPatient.patient.patient_profile_image_url ? (
+                    <img
+                      src={selectedPatient.patient.patient_profile_image_url}
+                      alt={selectedPatient.patient.display_name}
+                      className="h-14 w-14 rounded-full border border-slate-200 object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-lg font-semibold text-slate-700">
+                      {getInitials(selectedPatient.patient.display_name || selectedPatient.patient.pseudonym)}
+                    </div>
+                  )}
+                </div>
+                <p className="text-center text-sm font-semibold text-slate-900">
+                  {selectedPatient.patient.display_name}
+                </p>
+                <p className="mt-1 text-center text-xs text-slate-600">
+                  {selectedPatient.patient.pseudonym}
+                </p>
+                <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Email</dt>
+                    <dd className="mt-1 flex items-center gap-1.5 text-sm text-slate-900">
+                      <span>{selectedPatient.patient.email_masked ?? "-"}</span>
+                      {selectedPatient.patient.email_verified ? (
+                        <span className="group relative inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-100 text-emerald-700" title="Verified">
+                          <svg viewBox="0 0 20 20" fill="none" className="h-3 w-3" aria-hidden="true">
+                            <path d="M5 10l3 3 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                          <span className="sr-only">Verified</span>
+                          <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 shadow-sm group-hover:block">
+                            Verified
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="group relative inline-flex h-4 w-4 items-center justify-center rounded-full bg-slate-200 text-slate-600" title="Unverified">
+                          <svg viewBox="0 0 20 20" fill="none" className="h-3 w-3" aria-hidden="true">
+                            <path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                          </svg>
+                          <span className="sr-only">Unverified</span>
+                          <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 shadow-sm group-hover:block">
+                            Unverified
+                          </span>
+                        </span>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Phone</dt>
+                    <dd className="mt-1 flex items-center gap-1.5 text-sm text-slate-900">
+                      <span>{selectedPatient.patient.phone_masked ?? "-"}</span>
+                      {selectedPatient.patient.phone_verified ? (
+                        <span className="group relative inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-100 text-emerald-700" title="Verified">
+                          <svg viewBox="0 0 20 20" fill="none" className="h-3 w-3" aria-hidden="true">
+                            <path d="M5 10l3 3 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                          <span className="sr-only">Verified</span>
+                          <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 shadow-sm group-hover:block">
+                            Verified
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="group relative inline-flex h-4 w-4 items-center justify-center rounded-full bg-slate-200 text-slate-600" title="Unverified">
+                          <svg viewBox="0 0 20 20" fill="none" className="h-3 w-3" aria-hidden="true">
+                            <path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                          </svg>
+                          <span className="sr-only">Unverified</span>
+                          <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 shadow-sm group-hover:block">
+                            Unverified
+                          </span>
+                        </span>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Consent</dt>
+                    <dd className="mt-1 text-sm text-slate-900">{selectedPatient.patient.consent_status}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Preferred</dt>
+                    <dd className="mt-1 text-sm text-slate-900">{selectedPatient.patient.preferred_channel}</dd>
+                  </div>
+                </dl>
+                <p className="mt-3 text-xs text-slate-500">
+                  {selectedPatient.recent.transcript_count} transcript(s) · {selectedPatient.recent.lead_count} lead(s)
+                </p>
+                {selectedPatient.latest_interaction ? (
+                  <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2">
+                    <p className="text-sm text-slate-700">
+                      Latest transcript · {new Date(selectedPatient.latest_interaction.transcript_created_at).toLocaleString()}
+                    </p>
+                    <a
+                      className="group relative inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+                      href={`/transcripts/${selectedPatient.latest_interaction.transcript_id}?from=dashboard`}
+                      aria-label="View transcript"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        className="h-4 w-4"
+                        aria-hidden="true"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M14 3H7a2 2 0 0 0-2 2v14l3-2 3 2 3-2 3 2V8z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 8h5M9 12h5" />
+                      </svg>
+                      <span className="pointer-events-none absolute right-0 top-full z-10 mt-1 hidden whitespace-nowrap rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 shadow-sm group-hover:block">
+                        View transcript
+                      </span>
+                    </a>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </div>,
+        document.body
+      )
+        : null}
     </div>
   );
 }
