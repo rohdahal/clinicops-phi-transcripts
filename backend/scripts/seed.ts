@@ -7,12 +7,35 @@ import { createClient } from "@supabase/supabase-js";
 
 type TranscriptRow = {
   id: string;
+  patient_id?: string | null;
   patient_pseudonym: string;
   source: string;
   source_ref?: string | null;
   redacted_text: string;
   idempotency_key: string;
   status: "new" | "processed";
+  meta?: Record<string, unknown> | null;
+};
+
+type PatientRow = {
+  id?: string;
+  created_at?: string;
+  updated_at?: string;
+  pseudonym: string;
+  full_name?: string | null;
+  masked_name?: string | null;
+  patient_profile_image_url?: string | null;
+  email?: string | null;
+  email_masked?: string | null;
+  email_verified?: boolean;
+  phone?: string | null;
+  phone_masked?: string | null;
+  phone_verified?: boolean;
+  preferred_channel?: "phone" | "email" | "sms" | "none";
+  contact_ok?: boolean;
+  consent_status?: "unknown" | "granted" | "revoked" | "pending";
+  consent_source?: string | null;
+  consent_at?: string | null;
   meta?: Record<string, unknown> | null;
 };
 
@@ -64,6 +87,7 @@ type AuditEventRow = {
 };
 
 type SeedFile = {
+  patients?: PatientRow[];
   transcripts: TranscriptRow[];
   transcript_artifacts: ArtifactRow[];
   lead_opportunities: LeadRow[];
@@ -123,6 +147,7 @@ function runSchemaSqlFiles(dbUrl: string) {
   const repoRoot = path.resolve(process.cwd(), "..");
   const sqlFiles = [
     "sql/transcripts.sql",
+    "sql/patients.sql",
     "sql/transcript_artifacts.sql",
     "sql/audit_events.sql",
     "sql/lead_opportunities.sql"
@@ -190,6 +215,9 @@ async function readSeedFile(filePath: string): Promise<SeedFile> {
   const raw = await readFile(filePath, "utf8");
   const parsed = JSON.parse(raw) as SeedFile;
 
+  if (parsed.patients !== undefined && !Array.isArray(parsed.patients)) {
+    throw new Error("Seed file patients must be an array when provided");
+  }
   if (!Array.isArray(parsed.transcripts)) {
     throw new Error("Seed file must include transcripts[]");
   }
@@ -223,10 +251,65 @@ async function main() {
     getRequiredEnv("SUPABASE_SERVICE_ROLE_KEY")
   );
 
+  const transcriptPseudonyms = Array.from(
+    new Set(seed.transcripts.map((row) => row.patient_pseudonym.trim()).filter((value) => value.length > 0))
+  );
+
+  const patientRowsByPseudonym = new Map<string, PatientRow>();
+  for (const row of seed.patients ?? []) {
+    const pseudonym = row.pseudonym.trim();
+    if (!pseudonym) {
+      continue;
+    }
+    patientRowsByPseudonym.set(pseudonym, { ...row, pseudonym });
+  }
+  for (const pseudonym of transcriptPseudonyms) {
+    if (!patientRowsByPseudonym.has(pseudonym)) {
+      patientRowsByPseudonym.set(pseudonym, {
+        pseudonym,
+        masked_name: pseudonym,
+        meta: { seeded_from: "transcripts" }
+      });
+    }
+  }
+
+  const patientRows = Array.from(patientRowsByPseudonym.values()).map((row) => {
+    const { id: _ignoredId, ...rest } = row;
+    return {
+      ...rest,
+      masked_name: row.masked_name ?? row.pseudonym
+    };
+  });
+
+  if (patientRows.length > 0) {
+    const { error: patientUpsertError } = await supabase
+      .from("patients")
+      .upsert(patientRows, { onConflict: "pseudonym" });
+    if (patientUpsertError) throw patientUpsertError;
+  }
+
+  let patientIdByPseudonym = new Map<string, string>();
+  if (transcriptPseudonyms.length > 0) {
+    const { data: patientLookup, error: patientLookupError } = await supabase
+      .from("patients")
+      .select("id,pseudonym")
+      .in("pseudonym", transcriptPseudonyms);
+    if (patientLookupError) throw patientLookupError;
+
+    patientIdByPseudonym = new Map(
+      (patientLookup ?? []).map((row) => [row.pseudonym as string, row.id as string])
+    );
+  }
+
   if (seed.transcripts.length > 0) {
+    const transcriptsWithPatientIds = seed.transcripts.map((row) => ({
+      ...row,
+      patient_id: patientIdByPseudonym.get(row.patient_pseudonym.trim()) ?? null
+    }));
+
     const { error } = await supabase
       .from("transcripts")
-      .upsert(seed.transcripts, { onConflict: "id" });
+      .upsert(transcriptsWithPatientIds, { onConflict: "id" });
     if (error) throw error;
   }
 
@@ -252,7 +335,7 @@ async function main() {
   }
 
   console.log(
-    `Seed complete from ${options.filePath} (${seed.transcripts.length} transcripts, ${seed.transcript_artifacts.length} artifacts, ${seed.lead_opportunities.length} leads, ${seed.audit_events.length} audit events).`
+    `Seed complete from ${options.filePath} (${(seed.patients ?? []).length} patients, ${seed.transcripts.length} transcripts, ${seed.transcript_artifacts.length} artifacts, ${seed.lead_opportunities.length} leads, ${seed.audit_events.length} audit events).`
   );
 }
 

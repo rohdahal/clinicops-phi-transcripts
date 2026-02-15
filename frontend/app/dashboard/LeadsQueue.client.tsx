@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type LeadRow = {
@@ -45,10 +45,10 @@ const readTranscriptMeta = (value: LeadRow["transcripts"]) => {
 };
 
 const formatStatus = (status: string) => status.replaceAll("_", " ");
-const scoreTone = (score: number) => {
-  if (score >= 0.8) return "bg-slate-800";
-  if (score >= 0.6) return "bg-slate-700";
-  return "bg-slate-700";
+const getScoreTier = (score: number) => {
+  if (score >= 0.8) return { label: "High", dotClass: "bg-emerald-500" };
+  if (score >= 0.5) return { label: "Medium", dotClass: "bg-amber-500" };
+  return { label: "Low", dotClass: "bg-slate-400" };
 };
 
 export default function LeadsQueue({
@@ -59,10 +59,30 @@ export default function LeadsQueue({
 }: Props) {
   const router = useRouter();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [openMenuLeadId, setOpenMenuLeadId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"active" | "overdue" | "all">("active");
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState<"priority" | "due_soon" | "newest">("priority");
+
+  useEffect(() => {
+    if (!openMenuLeadId) {
+      return;
+    }
+
+    const handleDocumentClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("[data-lead-actions-root='true']")) {
+        return;
+      }
+      setOpenMenuLeadId(null);
+    };
+
+    document.addEventListener("mousedown", handleDocumentClick);
+    return () => {
+      document.removeEventListener("mousedown", handleDocumentClick);
+    };
+  }, [openMenuLeadId]);
 
   const filteredLeads = useMemo(() => {
     let items = [...leads];
@@ -132,6 +152,7 @@ export default function LeadsQueue({
         throw new Error(`Failed to update lead (${response.status})`);
       }
 
+      setOpenMenuLeadId(null);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update lead");
@@ -220,6 +241,7 @@ export default function LeadsQueue({
           const transcriptMeta = readTranscriptMeta(lead.transcripts);
           const isBusy = updatingId === lead.id;
           const isOverdue = lead.due_at ? new Date(lead.due_at).getTime() < Date.now() : false;
+          const scoreTier = getScoreTier(lead.lead_score);
 
           return (
             <article
@@ -230,9 +252,11 @@ export default function LeadsQueue({
                   : "border-slate-200 bg-white"
               }`}
             >
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <p className="text-sm font-semibold text-slate-900">{lead.title}</p>
-                <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2">
+                <p className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900" title={lead.title}>
+                  {lead.title}
+                </p>
+                <div className="ml-auto flex shrink-0 items-center gap-0">
                   <span
                     className={`rounded-full border px-2 py-0.5 text-[11px] uppercase ${
                       statusTone[lead.status] ?? "bg-slate-100 text-slate-700 border-slate-200"
@@ -240,40 +264,108 @@ export default function LeadsQueue({
                   >
                     {formatStatus(lead.status)}
                   </span>
-                  <span className={`rounded-full px-2 py-0.5 text-[11px] text-white ${scoreTone(lead.lead_score)}`}>
-                    {Math.round(lead.lead_score * 100)}% score
-                  </span>
+                  <div className="relative" data-lead-actions-root="true">
+                    <button
+                      type="button"
+                      aria-label="Lead actions"
+                      aria-haspopup="menu"
+                      aria-expanded={openMenuLeadId === lead.id}
+                      onClick={() => setOpenMenuLeadId((current) => (current === lead.id ? null : lead.id))}
+                      disabled={isBusy}
+                      className="-ml-1 inline-flex h-7 w-7 items-center justify-center text-slate-500 transition hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+                        <circle cx="10" cy="4" r="1.5" />
+                        <circle cx="10" cy="10" r="1.5" />
+                        <circle cx="10" cy="16" r="1.5" />
+                      </svg>
+                    </button>
+                    {openMenuLeadId === lead.id ? (
+                      <div className="absolute right-0 top-full z-20 mt-1 min-w-[8rem] rounded-xl border border-slate-200 bg-white p-1 shadow-md">
+                        <button
+                          type="button"
+                          onClick={() => void setStatus(lead.id, "in_progress")}
+                          disabled={isBusy}
+                          className="block w-full rounded-lg px-2 py-1 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        >
+                          Start
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void setStatus(lead.id, "contacted")}
+                          disabled={isBusy}
+                          className="block w-full rounded-lg px-2 py-1 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        >
+                          Contacted
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void setStatus(lead.id, "qualified")}
+                          disabled={isBusy}
+                          className="block w-full rounded-lg px-2 py-1 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        >
+                          Qualified
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void setStatus(lead.id, "dismissed")}
+                          disabled={isBusy}
+                          className="block w-full rounded-lg px-2 py-1 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               </div>
 
               <p className="mt-2 text-sm text-slate-700">{lead.reason}</p>
               <p className="mt-2 rounded-md bg-slate-50 p-2 text-xs text-slate-700">Next action: {lead.next_action}</p>
 
-              <div className="mt-2 text-xs text-slate-500">
-                {lead.due_at ? `Due ${new Date(lead.due_at).toLocaleDateString()}` : "No due date"}
-                {mode === "dashboard" ? (
-                  <>
-                    {" · "}
-                    <a className="font-medium text-slate-700 underline" href={`/transcripts/${lead.transcript_id}?from=dashboard`}>
-                      {transcriptMeta?.patient_pseudonym ?? lead.transcript_id}
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <div className="min-w-0 truncate text-xs text-slate-500">
+                  {lead.due_at ? `Due ${new Date(lead.due_at).toLocaleDateString()}` : "No due date"}
+                  {mode === "dashboard" ? (
+                    <>
+                      {" · "}
+                      <a className="font-medium text-slate-700 underline" href={`/transcripts/${lead.transcript_id}?from=dashboard`}>
+                        {transcriptMeta?.patient_pseudonym ?? lead.transcript_id}
+                      </a>
+                    </>
+                  ) : null}
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {mode === "dashboard" ? (
+                    <a
+                      href={`/transcripts/${lead.transcript_id}?from=dashboard`}
+                      aria-label="View transcript"
+                      className="group relative inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        className="h-4 w-4"
+                        aria-hidden="true"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M14 3H7a2 2 0 0 0-2 2v14l3-2 3 2 3-2 3 2V8z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 8h5M9 12h5" />
+                      </svg>
+                      <span className="pointer-events-none absolute right-0 top-full z-10 mt-1 hidden whitespace-nowrap rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 shadow-sm group-hover:block">
+                        View transcript
+                      </span>
                     </a>
-                  </>
-                ) : null}
-              </div>
-
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button type="button" onClick={() => void setStatus(lead.id, "in_progress")} disabled={isBusy} className="btn-secondary !px-2 !py-1 !text-xs">
-                  Start
-                </button>
-                <button type="button" onClick={() => void setStatus(lead.id, "contacted")} disabled={isBusy} className="btn-secondary !px-2 !py-1 !text-xs">
-                  Contacted
-                </button>
-                <button type="button" onClick={() => void setStatus(lead.id, "qualified")} disabled={isBusy} className="btn-secondary !px-2 !py-1 !text-xs">
-                  Qualified
-                </button>
-                <button type="button" onClick={() => void setStatus(lead.id, "dismissed")} disabled={isBusy} className="btn-secondary !px-2 !py-1 !text-xs">
-                  Dismiss
-                </button>
+                  ) : null}
+                  <span
+                    className="inline-flex shrink-0 items-center justify-center rounded-xl border border-teal-200 bg-white/85 px-2 py-1 text-xs font-semibold text-teal-800"
+                  >
+                    <span className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${scoreTier.dotClass}`} aria-hidden="true" />
+                    {Math.round(lead.lead_score * 100)}% {scoreTier.label}
+                  </span>
+                </div>
               </div>
             </article>
           );
