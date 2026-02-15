@@ -3,6 +3,7 @@ import AppHeader from "@/src/components/AppHeader";
 import { getBackendBaseUrl } from "@/src/lib/backend";
 import { createSupabaseServerClient } from "@/src/lib/supabase/server";
 import LeadsQueue from "./LeadsQueue.client";
+import Last7DaysChart from "./Last7DaysChart.client";
 
 type MetricsResponse = {
   inbox_new: number;
@@ -35,14 +36,6 @@ type MetricsResponse = {
   }>;
 };
 
-const buildBars = (counts: Array<{ day: string; count: number }>) => {
-  const max = Math.max(1, ...counts.map((entry) => entry.count));
-  return counts.map((entry) => ({
-    ...entry,
-    width: `${Math.round((entry.count / max) * 100)}%`
-  }));
-};
-
 export default async function DashboardPage() {
   const supabase = await createSupabaseServerClient();
   const {
@@ -63,68 +56,61 @@ export default async function DashboardPage() {
   }
 
   const metrics = (await response.json()) as MetricsResponse;
-  const viewedBars = buildBars(metrics.viewed_last_7d);
-  const processedBars = buildBars(metrics.processed_last_7d);
   const topLeadScore = metrics.leads_queue[0]
     ? Math.round(metrics.leads_queue[0].lead_score * 100)
     : 0;
+  const conversionRate =
+    metrics.processed > 0
+      ? Math.round((metrics.approved_summaries / metrics.processed) * 100)
+      : 0;
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_#f1f5f9,_#ffffff_35%,_#f8fafc_100%)]">
+    <div className="app-shell">
       <AppHeader
         tabs={[
           { href: "/dashboard", label: "Dashboard", active: true },
           { href: "/transcripts", label: "Transcript Inbox" }
         ]}
       />
-      <main className="mx-auto w-full max-w-5xl px-6 py-6">
-        <section className="rounded-3xl border border-slate-200/80 bg-gradient-to-br from-white to-slate-50 p-6 shadow-md shadow-slate-200/40">
-          <p className="text-xs uppercase tracking-wide text-slate-500">
-            Lead Command Center
-          </p>
-          <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
-            Follow-up opportunities from transcript summaries
-          </h2>
-          <div className="mt-4 grid gap-3 md:grid-cols-4">
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow">
-              <p className="text-xs uppercase text-amber-700">Open follow-up</p>
-              <p className="mt-1 text-3xl font-semibold text-amber-900">
-                {metrics.leads_followup_open}
-              </p>
+      <main className="shell-container">
+        <section className="panel reveal">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-slate-900">Lead command center</h2>
+            <a className="text-xs font-medium text-teal-700 underline" href="/transcripts">
+              Open inbox
+            </a>
+          </div>
+          <div className="mt-3 overflow-x-auto pb-1">
+            <div className="grid w-full min-w-[56rem] grid-cols-5 gap-2 lg:min-w-0">
+              <div className="rounded-lg border border-slate-200 bg-slate-50/90 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">Open</p>
+              <p className="mt-1 text-xl font-semibold text-slate-900">{metrics.leads_followup_open}</p>
             </div>
-            <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow">
-              <p className="text-xs uppercase text-rose-700">Overdue</p>
-              <p className="mt-1 text-3xl font-semibold text-rose-900">
-                {metrics.leads_followup_overdue}
-              </p>
+              <div className="rounded-lg border border-slate-200 bg-slate-50/90 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">Overdue</p>
+              <p className="mt-1 text-xl font-semibold text-slate-900">{metrics.leads_followup_overdue}</p>
             </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow">
-              <p className="text-xs uppercase text-slate-600">Top lead score</p>
-              <p className="mt-1 text-3xl font-semibold text-slate-900">
-                {topLeadScore}%
-              </p>
+              <div className="rounded-lg border border-slate-200 bg-slate-50/90 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">Top score</p>
+              <p className="mt-1 text-xl font-semibold text-slate-900">{topLeadScore}%</p>
             </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow">
-              <p className="text-xs uppercase text-slate-600">New transcripts</p>
-              <p className="mt-1 text-3xl font-semibold text-slate-900">
-                {metrics.inbox_new}
-              </p>
-              <a className="text-xs text-slate-600 underline" href="/transcripts">
-                Open inbox
-              </a>
+              <div className="rounded-lg border border-slate-200 bg-slate-50/90 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">Approval rate</p>
+              <p className="mt-1 text-xl font-semibold text-slate-900">{conversionRate}%</p>
+            </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50/90 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">New transcripts</p>
+              <p className="mt-1 text-xl font-semibold text-slate-900">{metrics.inbox_new}</p>
+            </div>
             </div>
           </div>
         </section>
 
-        <section className="mt-6 grid gap-4 lg:grid-cols-[1.35fr_1fr]">
-          <div className="rounded-3xl border border-slate-200/80 bg-white/90 p-6 shadow-md shadow-slate-200/30 backdrop-blur">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-              Lead Queue
-            </h3>
-            <p className="mt-1 text-sm text-slate-600">
-              Sort by urgency and close follow-ups directly from the queue.
-            </p>
-            <div className="mt-4 max-h-[34rem] overflow-y-auto pr-1">
+        <section className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className="order-2 panel-soft reveal flex min-h-0 flex-col overflow-hidden lg:order-1 lg:h-[calc(100vh-0.5rem)]">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Lead Queue</h3>
+            <p className="mt-1 text-sm text-slate-600">Prioritize follow-ups and close actions directly from the queue.</p>
+            <div className="mt-4 min-h-0 flex-1 overflow-hidden">
               <LeadsQueue
                 leads={metrics.leads_queue}
                 accessToken={session.access_token}
@@ -133,81 +119,49 @@ export default async function DashboardPage() {
             </div>
           </div>
 
-          <div className="space-y-4">
-            <div className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-md shadow-slate-200/30">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-                Throughput
-              </h3>
+          <aside className="order-1 space-y-4 lg:order-2 lg:flex lg:h-[calc(100vh-0.5rem)] lg:flex-col">
+            <div className="panel-soft reveal">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Throughput</h3>
               <div className="mt-3 grid grid-cols-2 gap-3">
-                <div className="rounded-lg bg-slate-50 p-3">
+                <div className="rounded-xl border border-slate-100 bg-slate-50/90 p-3">
                   <p className="text-xs text-slate-500">Processed</p>
                   <p className="text-2xl font-semibold text-slate-900">{metrics.processed}</p>
                 </div>
-                <div className="rounded-lg bg-slate-50 p-3">
+                <div className="rounded-xl border border-slate-100 bg-slate-50/90 p-3">
                   <p className="text-xs text-slate-500">Approved summaries</p>
-                  <p className="text-2xl font-semibold text-slate-900">
-                    {metrics.approved_summaries}
-                  </p>
+                  <p className="text-2xl font-semibold text-slate-900">{metrics.approved_summaries}</p>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-md shadow-slate-200/30">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-                Last 7 Days
-              </h3>
-              <div className="mt-4 max-h-60 space-y-3 overflow-y-auto">
-                {viewedBars.map((entry, index) => (
-                  <div key={`viewed-${entry.day}`} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs text-slate-500">
-                      <span>{entry.day}</span>
-                      <span>Viewed: {entry.count}</span>
-                    </div>
-                    <div className="h-2 w-full rounded-full bg-slate-100">
-                      <div
-                        className="h-2 rounded-full bg-slate-700"
-                        style={{ width: entry.width }}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between text-xs text-slate-500">
-                      <span className="sr-only">Processed</span>
-                      <span>Processed: {processedBars[index]?.count ?? 0}</span>
-                    </div>
-                    <div className="h-2 w-full rounded-full bg-slate-100">
-                      <div
-                        className="h-2 rounded-full bg-emerald-500"
-                        style={{ width: processedBars[index]?.width ?? "0%" }}
-                      />
-                    </div>
-                  </div>
-                ))}
+            <div className="panel-soft reveal">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Last 7 Days</h3>
+              <div className="mt-3">
+                <Last7DaysChart viewed={metrics.viewed_last_7d} processed={metrics.processed_last_7d} />
               </div>
             </div>
 
-            <div className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-md shadow-slate-200/30">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-                Recent Activity
-              </h3>
-              <div className="mt-4 max-h-56 space-y-2 overflow-y-auto">
+            <div className="panel-soft reveal lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Recent Activity</h3>
+              <div className="mt-4 max-h-[19.5rem] space-y-2 overflow-y-auto pr-1 lg:min-h-0 lg:max-h-none lg:flex-1">
                 {metrics.recent_activity.length === 0 ? (
                   <p className="text-sm text-slate-500">No recent activity.</p>
                 ) : (
                   metrics.recent_activity.map((event) => (
                     <div
                       key={`${event.created_at}-${event.action}`}
-                      className="rounded-md border border-slate-100 bg-slate-50 p-3 text-sm text-slate-700"
+                      className="rounded-xl border border-slate-100 bg-white/90 p-3 text-sm text-slate-700"
                     >
                       <p className="font-medium text-slate-900">{event.action}</p>
                       <p className="text-xs text-slate-500">
-                        {new Date(event.created_at).toLocaleString()} ·{" "}
-                        {event.actor_display ?? "unknown"}
+                        {new Date(event.created_at).toLocaleString()} · {event.actor_display ?? "unknown"}
                       </p>
                     </div>
                   ))
                 )}
               </div>
             </div>
-          </div>
+          </aside>
         </section>
       </main>
     </div>

@@ -70,35 +70,24 @@ export default function TranscriptLeadsPanel({
   };
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="panel reveal">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-slate-900">Lead Opportunities</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            Prioritize follow-up actions directly from this transcript.
-          </p>
+          <p className="mt-1 text-sm text-slate-600">Prioritize follow-up actions directly from this transcript.</p>
         </div>
         <div className="flex items-center gap-2">
-          <select
-            value={model}
-            onChange={(event) => setModel(event.target.value as ModelOption)}
-            className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700"
-          >
+          <select value={model} onChange={(event) => setModel(event.target.value as ModelOption)} className="field !mt-0 !w-auto !py-1.5 !text-xs">
             <option value="qwen2.5:1.5b">qwen2.5:1.5b</option>
             <option value="llama3.2:1b">llama3.2:1b</option>
           </select>
-          <button
-            type="button"
-            onClick={() => void generateLeads()}
-            disabled={state === "loading"}
-            className="rounded-md bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-60"
-          >
+          <button type="button" onClick={() => void generateLeads()} disabled={state === "loading"} className="btn-primary !px-3 !py-2 !text-xs">
             {state === "loading" ? "Generating..." : "Generate leads"}
           </button>
         </div>
       </div>
 
-      {error ? <p className="mt-3 text-sm text-rose-600">{error}</p> : null}
+      {error ? <p className="mt-3 text-sm font-medium text-rose-700">{error}</p> : null}
 
       <div className="mt-4 max-h-[32rem] overflow-y-auto pr-1">
         <LeadsQueue

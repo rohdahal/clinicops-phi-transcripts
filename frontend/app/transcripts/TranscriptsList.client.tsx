@@ -87,8 +87,8 @@ export default function TranscriptsList({
   };
 
   return (
-    <div className="mt-6">
-      <section className="rounded-lg border border-slate-200 bg-white p-4">
+    <div className="mt-6 space-y-4">
+      <section className="panel-soft reveal">
         <div className="flex flex-wrap items-end gap-3">
           <label className="flex min-w-[220px] flex-1 flex-col gap-1 text-xs font-semibold text-slate-600">
             Filter loaded results
@@ -96,7 +96,7 @@ export default function TranscriptsList({
               value={searchText}
               onChange={(event) => setSearchText(event.target.value)}
               placeholder="Filter loaded results..."
-              className="rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900"
+              className="field"
             />
           </label>
           <label className="flex w-48 flex-col gap-1 text-xs font-semibold text-slate-600">
@@ -104,7 +104,7 @@ export default function TranscriptsList({
             <select
               value={selectedSource}
               onChange={(event) => setSelectedSource(event.target.value)}
-              className="rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900"
+              className="field"
             >
               <option value="">All sources</option>
               <option value="call">call</option>
@@ -114,9 +114,7 @@ export default function TranscriptsList({
             </select>
           </label>
         </div>
-        <p className="mt-2 text-xs text-slate-500">
-          Filters apply to loaded items.
-        </p>
+        <p className="mt-2 text-xs text-slate-500">Filters apply to loaded items.</p>
         {patientFilter || serverSource ? (
           <p className="mt-1 text-xs text-slate-500">
             Database filters active
@@ -126,9 +124,9 @@ export default function TranscriptsList({
         ) : null}
       </section>
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-2xl border border-white/70 bg-white/90 shadow-[0_20px_40px_-35px_rgba(0,0,0,0.45)]">
         <table className="min-w-full divide-y divide-slate-200">
-          <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <thead className="bg-slate-50/90 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-4 py-3">Created</th>
               <th className="px-4 py-3">Patient</th>
@@ -139,22 +137,14 @@ export default function TranscriptsList({
           </thead>
           <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
             {filteredItems.map((item) => (
-              <tr
-                key={item.id}
-                className="cursor-pointer hover:bg-slate-50"
-                onClick={() => handleRowClick(item.id)}
-              >
-                <td className="px-4 py-3">
-                  {new Date(item.created_at).toLocaleString()}
-                </td>
-                <td className="px-4 py-3 font-medium text-slate-900">
-                  {item.patient_pseudonym}
-                </td>
+              <tr key={item.id} className="cursor-pointer hover:bg-teal-50/40" onClick={() => handleRowClick(item.id)}>
+                <td className="px-4 py-3">{new Date(item.created_at).toLocaleString()}</td>
+                <td className="px-4 py-3 font-semibold text-slate-900">{item.patient_pseudonym}</td>
                 <td className="px-4 py-3">{item.source}</td>
                 <td className="px-4 py-3">{item.source_ref ?? "-"}</td>
                 <td className="px-4 py-3">
                   <Link
-                    className="text-slate-900 underline"
+                    className="font-semibold text-teal-700 underline"
                     href={`/transcripts/${item.id}?from=inbox`}
                     onClick={(event) => event.stopPropagation()}
                   >
@@ -174,16 +164,11 @@ export default function TranscriptsList({
         </table>
       </div>
 
-      <div className="mt-4 flex items-center justify-between text-sm text-slate-600">
+      <div className="flex items-center justify-between text-sm text-slate-600">
         <span>
           Showing {filteredItems.length} of {items.length} loaded
         </span>
-        <button
-          type="button"
-          onClick={handleLoadMore}
-          disabled={!hasMore || loading}
-          className="rounded-md border border-slate-200 px-4 py-2 text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-        >
+        <button type="button" onClick={handleLoadMore} disabled={!hasMore || loading} className="btn-secondary">
           {loading ? "Loading..." : hasMore ? "Load more" : "No more"}
         </button>
       </div>

@@ -33,9 +33,11 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
-      <main className="w-full max-w-md rounded-lg bg-white p-8 shadow-sm">
-        <h1 className="text-2xl font-semibold text-slate-900">Log in</h1>
+    <div className="app-shell flex items-center justify-center px-4 py-10 sm:px-6">
+      <main className="panel reveal w-full max-w-md">
+        <p className="section-kicker">ClinicOps Access</p>
+        <h1 className="section-title">Log in</h1>
+        <p className="mt-2 text-sm text-slate-600">Continue to transcript triage and lead ops.</p>
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           <label className="block text-sm font-medium text-slate-700">
             Email
@@ -44,7 +46,7 @@ export default function LoginPage() {
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               required
-              className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900"
+              className="field"
             />
           </label>
           <label className="block text-sm font-medium text-slate-700">
@@ -54,21 +56,17 @@ export default function LoginPage() {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               required
-              className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900"
+              className="field"
             />
           </label>
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70"
-          >
+          <button type="submit" disabled={loading} className="btn-primary w-full">
             {loading ? "Logging in..." : "Log in"}
           </button>
         </form>
-        {error ? <p className="mt-4 text-sm text-rose-600">{error}</p> : null}
+        {error ? <p className="mt-4 text-sm font-medium text-rose-700">{error}</p> : null}
         <p className="mt-6 text-sm text-slate-600">
           Need an account?{" "}
-          <Link className="text-slate-900 underline" href="/register">
+          <Link className="font-semibold text-teal-700 underline decoration-teal-300 underline-offset-2" href="/register">
             Register
           </Link>
         </p>

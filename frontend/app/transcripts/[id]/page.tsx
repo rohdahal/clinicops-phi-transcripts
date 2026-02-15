@@ -11,8 +11,8 @@ import {
 import { createSupabaseServerClient } from "@/src/lib/supabase/server";
 
 type Props = {
-  params: { id: string } | Promise<{ id: string }>;
-  searchParams?: { from?: string | string[] } | Promise<{ from?: string | string[] }>;
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ from?: string | string[] }>;
 };
 
 const getParamValue = (value: string | string[] | undefined) => {
@@ -47,8 +47,7 @@ export default async function TranscriptDetailPage({ params, searchParams }: Pro
     });
     latestSummary = artifacts.find((artifact) => artifact.artifact_type === "summary");
     approvedSummary = artifacts.find(
-      (artifact) =>
-        artifact.artifact_type === "summary" && artifact.status === "approved"
+      (artifact) => artifact.artifact_type === "summary" && artifact.status === "approved"
     );
   } catch {
     approvedSummary = undefined;
@@ -59,13 +58,13 @@ export default async function TranscriptDetailPage({ params, searchParams }: Pro
     leads[0]?.model === "qwen2.5:1.5b" || leads[0]?.model === "llama3.2:1b"
       ? leads[0].model
       : approvedSummary?.model === "qwen2.5:1.5b" || approvedSummary?.model === "llama3.2:1b"
-      ? approvedSummary.model
-      : latestSummary?.model === "qwen2.5:1.5b" || latestSummary?.model === "llama3.2:1b"
-        ? latestSummary.model
-        : null;
+        ? approvedSummary.model
+        : latestSummary?.model === "qwen2.5:1.5b" || latestSummary?.model === "llama3.2:1b"
+          ? latestSummary.model
+          : null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-100 via-white to-slate-50">
+    <div className="app-shell">
       <AppHeader
         backHref="/transcripts"
         tabs={[
@@ -73,52 +72,32 @@ export default async function TranscriptDetailPage({ params, searchParams }: Pro
           { href: "/transcripts", label: "Transcript Inbox", active: true }
         ]}
       />
-      <main className="mx-auto w-full max-w-4xl px-6 py-6">
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <main className="shell-container">
+        <section className="panel reveal">
           <dl className="grid gap-4 sm:grid-cols-2">
             <div>
-              <dt className="text-xs font-semibold uppercase text-slate-500">
-                Patient
-              </dt>
-              <dd className="mt-1 text-sm text-slate-900">
-                {transcript.patient_pseudonym}
-              </dd>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Patient</dt>
+              <dd className="mt-1 text-sm font-medium text-slate-900">{transcript.patient_pseudonym}</dd>
             </div>
             <div>
-              <dt className="text-xs font-semibold uppercase text-slate-500">
-                Source
-              </dt>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Source</dt>
               <dd className="mt-1 text-sm text-slate-900">{transcript.source}</dd>
             </div>
             <div>
-              <dt className="text-xs font-semibold uppercase text-slate-500">
-                Source Ref
-              </dt>
-              <dd className="mt-1 text-sm text-slate-900">
-                {transcript.source_ref ?? "-"}
-              </dd>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Source Ref</dt>
+              <dd className="mt-1 text-sm text-slate-900">{transcript.source_ref ?? "-"}</dd>
             </div>
             <div>
-              <dt className="text-xs font-semibold uppercase text-slate-500">
-                Lead Opportunities
-              </dt>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Lead Opportunities</dt>
               <dd className="mt-1 text-sm text-slate-900">{leads.length}</dd>
             </div>
             <div>
-              <dt className="text-xs font-semibold uppercase text-slate-500">
-                Created
-              </dt>
-              <dd className="mt-1 text-sm text-slate-900">
-                {new Date(transcript.created_at).toLocaleString()}
-              </dd>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Created</dt>
+              <dd className="mt-1 text-sm text-slate-900">{new Date(transcript.created_at).toLocaleString()}</dd>
             </div>
             <div>
-              <dt className="text-xs font-semibold uppercase text-slate-500">
-                Status
-              </dt>
-              <dd className="mt-1 text-sm text-slate-900">
-                {transcript.status ?? "pending"}
-              </dd>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</dt>
+              <dd className="mt-1 text-sm text-slate-900">{transcript.status ?? "pending"}</dd>
             </div>
           </dl>
           {accessToken ? (
@@ -152,21 +131,15 @@ export default async function TranscriptDetailPage({ params, searchParams }: Pro
         ) : null}
 
         {approvedSummary ? (
-          <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-sm font-semibold text-slate-700">
-              Approved Summary
-            </h2>
-            <p className="mt-3 whitespace-pre-wrap text-sm text-slate-800">
-              {approvedSummary.content}
-            </p>
+          <section className="panel mt-6 reveal">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">Approved Summary</h2>
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-800">{approvedSummary.content}</p>
           </section>
         ) : null}
 
-        <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-sm font-semibold text-slate-700">Transcript Text</h2>
-          <p className="mt-3 whitespace-pre-wrap text-sm text-slate-800">
-            {transcript.redacted_text}
-          </p>
+        <section className="panel mt-6 reveal">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">Transcript Text</h2>
+          <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-800">{transcript.redacted_text}</p>
         </section>
       </main>
     </div>

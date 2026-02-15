@@ -9,7 +9,7 @@ type SearchParams = {
 };
 
 type PageProps = {
-  searchParams?: SearchParams | Promise<SearchParams>;
+  searchParams?: Promise<SearchParams>;
 };
 
 const getParamValue = (value: string | string[] | undefined) => {
@@ -40,39 +40,29 @@ export default async function TranscriptsPage({ searchParams }: PageProps) {
   });
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="app-shell">
       <AppHeader
         tabs={[
           { href: "/dashboard", label: "Dashboard" },
           { href: "/transcripts", label: "Transcript Inbox", active: true }
         ]}
       />
-      <main className="mx-auto w-full max-w-5xl px-6 py-6">
-        <section className="rounded-lg border border-slate-200 bg-white p-4">
-          <h2 className="text-sm font-semibold text-slate-700">
-            Search database
-          </h2>
-          <form
-            action="/transcripts"
-            method="get"
-            className="mt-3 flex flex-wrap items-end gap-3"
-          >
+      <main className="shell-container">
+        <section className="panel reveal">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">Search database</h2>
+          <form action="/transcripts" method="get" className="mt-3 flex flex-wrap items-end gap-3">
             <label className="flex min-w-[220px] flex-1 flex-col gap-1 text-xs font-semibold text-slate-600">
               Patient pseudonym (exact)
               <input
                 name="patient_pseudonym"
                 defaultValue={filters.patient_pseudonym ?? ""}
                 placeholder="PT-1029"
-                className="rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900"
+                className="field"
               />
             </label>
             <label className="flex w-48 flex-col gap-1 text-xs font-semibold text-slate-600">
               Source
-              <select
-                name="source"
-                defaultValue={filters.source ?? ""}
-                className="rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900"
-              >
+              <select name="source" defaultValue={filters.source ?? ""} className="field">
                 <option value="">All sources</option>
                 <option value="call">call</option>
                 <option value="chat">chat</option>
@@ -80,10 +70,7 @@ export default async function TranscriptsPage({ searchParams }: PageProps) {
                 <option value="import">import</option>
               </select>
             </label>
-            <button
-              type="submit"
-              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
-            >
+            <button type="submit" className="btn-primary">
               Search
             </button>
           </form>
