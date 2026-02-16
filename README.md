@@ -32,12 +32,24 @@ The long-term goal is to move beyond surfacing insights and toward
 **closing the loop on patient follow-ups**, with clinicians always in control.
 
 ## Prerequisites
-- Node.js
+- Node.js 22 LTS (recommended)
 - npm
 - Docker (for local Ollama)
 
+## Node version setup (nvm)
+Use Node 22 for both frontend and backend to avoid intermittent dev-server stalls.
+
+```bash
+nvm install 22
+nvm use 22
+node -v
+```
+
+Expected output should start with `v22`.
+
 ## Run backend
 ```bash
+nvm use 22
 cd backend
 npm install
 npm run dev
@@ -45,6 +57,7 @@ npm run dev
 
 ## Run frontend
 ```bash
+nvm use 22
 cd frontend
 npm install
 npm run dev
