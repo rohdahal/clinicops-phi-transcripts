@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createPortal } from "react-dom";
+import PatientProfileDialog, { type PatientProfileData } from "@/src/components/dashboard/PatientProfileDialog";
+import StartOutreachDialog, { type OutreachChannel } from "@/src/components/dashboard/StartOutreachDialog";
 
 type LeadRow = {
   id: string;
@@ -25,31 +26,6 @@ type Props = {
   accessToken: string;
   backendBaseUrl: string;
   mode?: "dashboard" | "transcript";
-};
-
-type PatientProfileData = {
-  patient: {
-    id: string;
-    pseudonym: string;
-    display_name: string;
-    patient_profile_image_url: string | null;
-    email_masked: string | null;
-    email_verified: boolean;
-    phone_masked: string | null;
-    phone_verified: boolean;
-    preferred_channel: string;
-    consent_status: string;
-  };
-  latest_interaction: {
-    transcript_id: string;
-    transcript_created_at: string;
-    lead_id: string | null;
-    lead_status: string | null;
-  } | null;
-  recent: {
-    transcript_count: number;
-    lead_count: number;
-  };
 };
 
 const statusTone: Record<string, string> = {
@@ -77,17 +53,6 @@ const getScoreTier = (score: number) => {
   return { label: "Low", dotClass: "bg-slate-400" };
 };
 
-const getInitials = (value: string) => {
-  const parts = value.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) {
-    return "?";
-  }
-  if (parts.length === 1) {
-    return parts[0].slice(0, 2).toUpperCase();
-  }
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-};
-
 export default function LeadsQueue({
   leads,
   accessToken,
@@ -105,7 +70,12 @@ export default function LeadsQueue({
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [patientLoading, setPatientLoading] = useState(false);
   const [patientError, setPatientError] = useState<string | null>(null);
-  const [isClient, setIsClient] = useState(false);
+  const [startLeadId, setStartLeadId] = useState<string | null>(null);
+  const [startPatientId, setStartPatientId] = useState<string | null>(null);
+  const [startPatient, setStartPatient] = useState<PatientProfileData | null>(null);
+  const [startLoading, setStartLoading] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
+  const [outreachChannel, setOutreachChannel] = useState<OutreachChannel>("text");
 
   useEffect(() => {
     if (!openMenuLeadId) {
@@ -125,23 +95,6 @@ export default function LeadsQueue({
       document.removeEventListener("mousedown", handleDocumentClick);
     };
   }, [openMenuLeadId]);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  useEffect(() => {
-    if (!selectedPatientId) {
-      return;
-    }
-
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.body.style.overflow = originalOverflow;
-    };
-  }, [selectedPatientId]);
 
   const filteredLeads = useMemo(() => {
     let items = [...leads];
@@ -193,7 +146,12 @@ export default function LeadsQueue({
     return items;
   }, [filter, leads, mode, query, sortBy]);
 
-  const setStatus = async (leadId: string, status: string) => {
+  const setStatus = async (leadId: string, status: string): Promise<boolean> => {
+    if (status === "in_progress" && !startLeadId) {
+      setError("Please use Start dialog to begin this action.");
+      return false;
+    }
+
     setUpdatingId(leadId);
     setError(null);
 
@@ -213,11 +171,26 @@ export default function LeadsQueue({
 
       setOpenMenuLeadId(null);
       router.refresh();
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update lead");
+      return false;
     } finally {
       setUpdatingId(null);
     }
+  };
+
+  const fetchPatientProfile = async (patientId: string) => {
+    const response = await fetch(`${backendBaseUrl}/v1/patients/${encodeURIComponent(patientId)}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: "no-store"
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to load patient (${response.status})`);
+    }
+
+    return (await response.json()) as PatientProfileData;
   };
 
   const openPatientModal = async (patientId: string) => {
@@ -227,16 +200,7 @@ export default function LeadsQueue({
     setSelectedPatient(null);
 
     try {
-      const response = await fetch(`${backendBaseUrl}/v1/patients/${encodeURIComponent(patientId)}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        cache: "no-store"
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to load patient (${response.status})`);
-      }
-
-      const payload = (await response.json()) as PatientProfileData;
+      const payload = await fetchPatientProfile(patientId);
       setSelectedPatient(payload);
     } catch (err) {
       setPatientError(err instanceof Error ? err.message : "Failed to load patient");
@@ -244,6 +208,82 @@ export default function LeadsQueue({
       setPatientLoading(false);
     }
   };
+
+  const openStartModal = (lead: LeadRow) => {
+    const transcriptMeta = readTranscriptMeta(lead.transcripts);
+    setOpenMenuLeadId(null);
+    setStartLeadId(lead.id);
+    setStartPatientId(transcriptMeta?.patient_id ?? null);
+    setStartPatient(null);
+    setStartError(null);
+    setOutreachChannel("text");
+  };
+
+  const closeStartModal = () => {
+    setStartLeadId(null);
+    setStartPatientId(null);
+    setStartPatient(null);
+    setStartLoading(false);
+    setStartError(null);
+    setOutreachChannel("text");
+  };
+
+  const confirmStart = async () => {
+    if (!startLeadId) {
+      return;
+    }
+    const success = await setStatus(startLeadId, "in_progress");
+    if (success) {
+      closeStartModal();
+    } else {
+      setStartError("Failed to start action. Please try again.");
+    }
+  };
+
+  useEffect(() => {
+    if (!startLeadId) {
+      return;
+    }
+
+    if (!startPatientId) {
+      setStartLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setStartLoading(true);
+    setStartError(null);
+
+    void (async () => {
+      try {
+        const payload = await fetchPatientProfile(startPatientId);
+        if (cancelled) {
+          return;
+        }
+        setStartPatient(payload);
+        if (payload.patient.preferred_channel === "email") {
+          setOutreachChannel("email");
+        } else if (payload.patient.preferred_channel === "phone") {
+          setOutreachChannel("call");
+        } else {
+          setOutreachChannel("text");
+        }
+      } catch (err) {
+        if (cancelled) {
+          return;
+        }
+        setStartError(err instanceof Error ? err.message : "Failed to load patient");
+      } finally {
+        if (!cancelled) {
+          setStartLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [startLeadId, startPatientId]);
 
   if (leads.length === 0) {
     return (
@@ -368,7 +408,10 @@ export default function LeadsQueue({
                       <div className="absolute right-0 top-full z-20 mt-1 min-w-[8rem] rounded-xl border border-slate-200 bg-white p-1 shadow-md">
                         <button
                           type="button"
-                          onClick={() => void setStatus(lead.id, "in_progress")}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void openStartModal(lead);
+                          }}
                           disabled={isBusy}
                           className="block w-full rounded-lg px-2 py-1 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50"
                         >
@@ -471,151 +514,26 @@ export default function LeadsQueue({
         {error ? <p className="text-sm font-medium text-slate-700">{error}</p> : null}
       </div>
 
-      {isClient && selectedPatientId
-        ? createPortal(
-        <div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/35 p-4"
-          onClick={() => setSelectedPatientId(null)}
-        >
-          <div
-            className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-5 shadow-xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold text-slate-900">Patient profile</h3>
-              <button
-                type="button"
-                className="text-sm font-medium text-slate-600 hover:text-slate-900"
-                onClick={() => setSelectedPatientId(null)}
-              >
-                Close
-              </button>
-            </div>
-            {patientLoading ? <p className="mt-3 text-sm text-slate-600">Loading patient...</p> : null}
-            {patientError ? <p className="mt-3 text-sm font-medium text-slate-700">{patientError}</p> : null}
-            {selectedPatient && !patientLoading ? (
-              <div className="mt-4">
-                <div className="mb-3 flex justify-center">
-                  {selectedPatient.patient.patient_profile_image_url ? (
-                    <img
-                      src={selectedPatient.patient.patient_profile_image_url}
-                      alt={selectedPatient.patient.display_name}
-                      className="h-14 w-14 rounded-full border border-slate-200 object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-lg font-semibold text-slate-700">
-                      {getInitials(selectedPatient.patient.display_name || selectedPatient.patient.pseudonym)}
-                    </div>
-                  )}
-                </div>
-                <p className="text-center text-sm font-semibold text-slate-900">
-                  {selectedPatient.patient.display_name}
-                </p>
-                <p className="mt-1 text-center text-xs text-slate-600">
-                  {selectedPatient.patient.pseudonym}
-                </p>
-                <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Email</dt>
-                    <dd className="mt-1 flex items-center gap-1.5 text-sm text-slate-900">
-                      <span>{selectedPatient.patient.email_masked ?? "-"}</span>
-                      {selectedPatient.patient.email_verified ? (
-                        <span className="group relative inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-100 text-emerald-700" title="Verified">
-                          <svg viewBox="0 0 20 20" fill="none" className="h-3 w-3" aria-hidden="true">
-                            <path d="M5 10l3 3 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                          <span className="sr-only">Verified</span>
-                          <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 shadow-sm group-hover:block">
-                            Verified
-                          </span>
-                        </span>
-                      ) : (
-                        <span className="group relative inline-flex h-4 w-4 items-center justify-center rounded-full bg-slate-200 text-slate-600" title="Unverified">
-                          <svg viewBox="0 0 20 20" fill="none" className="h-3 w-3" aria-hidden="true">
-                            <path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                          </svg>
-                          <span className="sr-only">Unverified</span>
-                          <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 shadow-sm group-hover:block">
-                            Unverified
-                          </span>
-                        </span>
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Phone</dt>
-                    <dd className="mt-1 flex items-center gap-1.5 text-sm text-slate-900">
-                      <span>{selectedPatient.patient.phone_masked ?? "-"}</span>
-                      {selectedPatient.patient.phone_verified ? (
-                        <span className="group relative inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-100 text-emerald-700" title="Verified">
-                          <svg viewBox="0 0 20 20" fill="none" className="h-3 w-3" aria-hidden="true">
-                            <path d="M5 10l3 3 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                          <span className="sr-only">Verified</span>
-                          <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 shadow-sm group-hover:block">
-                            Verified
-                          </span>
-                        </span>
-                      ) : (
-                        <span className="group relative inline-flex h-4 w-4 items-center justify-center rounded-full bg-slate-200 text-slate-600" title="Unverified">
-                          <svg viewBox="0 0 20 20" fill="none" className="h-3 w-3" aria-hidden="true">
-                            <path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                          </svg>
-                          <span className="sr-only">Unverified</span>
-                          <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 shadow-sm group-hover:block">
-                            Unverified
-                          </span>
-                        </span>
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Consent</dt>
-                    <dd className="mt-1 text-sm text-slate-900">{selectedPatient.patient.consent_status}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Preferred</dt>
-                    <dd className="mt-1 text-sm text-slate-900">{selectedPatient.patient.preferred_channel}</dd>
-                  </div>
-                </dl>
-                <p className="mt-3 text-xs text-slate-500">
-                  {selectedPatient.recent.transcript_count} transcript(s) · {selectedPatient.recent.lead_count} lead(s)
-                </p>
-                {selectedPatient.latest_interaction ? (
-                  <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2">
-                    <p className="text-sm text-slate-700">
-                      Latest transcript · {new Date(selectedPatient.latest_interaction.transcript_created_at).toLocaleString()}
-                    </p>
-                    <a
-                      className="group relative inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
-                      href={`/transcripts/${selectedPatient.latest_interaction.transcript_id}?from=dashboard`}
-                      aria-label="View transcript"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                        className="h-4 w-4"
-                        aria-hidden="true"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M14 3H7a2 2 0 0 0-2 2v14l3-2 3 2 3-2 3 2V8z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 8h5M9 12h5" />
-                      </svg>
-                      <span className="pointer-events-none absolute right-0 top-full z-10 mt-1 hidden whitespace-nowrap rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 shadow-sm group-hover:block">
-                        View transcript
-                      </span>
-                    </a>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        </div>,
-        document.body
-      )
-        : null}
+      <PatientProfileDialog
+        open={Boolean(selectedPatientId)}
+        loading={patientLoading}
+        error={patientError}
+        data={selectedPatient}
+        onClose={() => setSelectedPatientId(null)}
+      />
+      <StartOutreachDialog
+        open={Boolean(startLeadId)}
+        loading={startLoading}
+        error={startError}
+        patientPseudonym={startPatient?.patient.pseudonym}
+        emailMasked={startPatient?.patient.email_masked}
+        phoneMasked={startPatient?.patient.phone_masked}
+        outreachChannel={outreachChannel}
+        isSubmitting={updatingId === startLeadId}
+        onChannelChange={setOutreachChannel}
+        onClose={closeStartModal}
+        onConfirm={() => void confirmStart()}
+      />
     </div>
   );
 }
