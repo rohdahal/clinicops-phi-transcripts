@@ -91,7 +91,8 @@ async function createLeadsFromAi(params: {
     meta: {
       origin: "ai",
       model: params.model,
-      latency_ms: leadResult.latency_ms
+      latency_ms: leadResult.latency_ms,
+      outreach_channel: item.outreach_channel
     }
   };
 

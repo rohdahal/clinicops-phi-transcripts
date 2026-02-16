@@ -145,16 +145,38 @@ type RawLeadOpportunity = {
   title?: unknown;
   reason?: unknown;
   next_action?: unknown;
+  outreach_channel?: unknown;
   lead_score?: unknown;
   due_in_days?: unknown;
 };
+
+type OutreachChannel = "call" | "text" | "email";
 
 export type LeadOpportunityDraft = {
   title: string;
   reason: string;
   next_action: string;
+  outreach_channel: OutreachChannel;
   lead_score: number;
   due_in_days: number;
+};
+
+const normalizeOutreachChannel = (value: unknown): OutreachChannel => {
+  if (typeof value !== "string") {
+    return "text";
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "call" || normalized === "phone") {
+    return "call";
+  }
+  if (normalized === "email") {
+    return "email";
+  }
+  if (normalized === "text" || normalized === "sms") {
+    return "text";
+  }
+  return "text";
 };
 
 const parseLeadsJson = (text: string): RawLeadOpportunity[] => {
@@ -201,6 +223,7 @@ const normalizeLeadDrafts = (raw: RawLeadOpportunity[]): LeadOpportunityDraft[] 
         title,
         reason,
         next_action: nextAction,
+        outreach_channel: normalizeOutreachChannel(item.outreach_channel),
         lead_score: Math.max(0, Math.min(1, score)),
         due_in_days: Math.max(0, Math.min(30, Math.round(dueInDays)))
       };
@@ -221,6 +244,7 @@ export async function ollamaGenerateLeadOpportunities(
     '- "title": concise lead title\n' +
     '- "reason": why this is an opportunity based on transcript facts\n' +
     '- "next_action": concrete provider-staff follow-up action sentence\n' +
+    '- "outreach_channel": one of "call", "text", "email"\n' +
     '- "lead_score": number 0.0 to 1.0\n' +
     '- "due_in_days": integer 0 to 30\n' +
     "Rules: no PHI, no invented facts, return exactly one best lead when present, otherwise return [].\n" +

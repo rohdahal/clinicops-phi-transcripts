@@ -122,6 +122,7 @@ export default async function TranscriptDetailPage({ params, searchParams }: Pro
           <div className="mt-6">
             <TranscriptLeadsPanel
               transcriptId={transcript.id}
+              transcriptPatientId={transcript.patient_id ?? null}
               leads={leads}
               accessToken={accessToken}
               backendBaseUrl={getBackendBaseUrl()}

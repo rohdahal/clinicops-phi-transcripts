@@ -15,6 +15,7 @@ export type TranscriptListResponse = {
 };
 
 export type TranscriptDetail = TranscriptListItem & {
+  patient_id?: string | null;
   redacted_text: string;
   meta: Record<string, unknown> | null;
   idempotency_key?: string | null;

@@ -29,6 +29,7 @@ type MetricsResponse = {
     lead_score: number;
     status: string;
     due_at: string | null;
+    meta: Record<string, unknown> | null;
     transcripts?:
       | { patient_id?: string | null; patient_pseudonym?: string | null; source?: string | null }
       | Array<{ patient_id?: string | null; patient_pseudonym?: string | null; source?: string | null }>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import PatientProfileDialog, { type PatientProfileData } from "@/src/components/dashboard/PatientProfileDialog";
 import StartOutreachDialog, { type OutreachChannel } from "@/src/components/dashboard/StartOutreachDialog";
@@ -15,6 +15,7 @@ type LeadRow = {
   lead_score: number;
   status: string;
   due_at: string | null;
+  meta?: Record<string, unknown> | null;
   transcripts?:
     | { patient_id?: string | null; patient_pseudonym?: string | null; source?: string | null }
     | Array<{ patient_id?: string | null; patient_pseudonym?: string | null; source?: string | null }>
@@ -26,7 +27,18 @@ type Props = {
   accessToken: string;
   backendBaseUrl: string;
   mode?: "dashboard" | "transcript";
+  defaultPatientId?: string | null;
 };
+
+type LeadsPageResponse = {
+  items: LeadRow[];
+  limit: number;
+  offset: number;
+  next_offset: number | null;
+  has_more: boolean;
+};
+
+const DASHBOARD_PAGE_SIZE = 15;
 
 const statusTone: Record<string, string> = {
   open: "bg-slate-100 text-slate-700 border-slate-200",
@@ -53,13 +65,43 @@ const getScoreTier = (score: number) => {
   return { label: "Low", dotClass: "bg-slate-400" };
 };
 
+const toOutreachChannel = (value: string | null | undefined): OutreachChannel | null => {
+  if (value === "call" || value === "text" || value === "email") {
+    return value;
+  }
+  if (value === "phone") {
+    return "call";
+  }
+  if (value === "sms") {
+    return "text";
+  }
+  return null;
+};
+
+const readLeadOutreachChannel = (lead: LeadRow): OutreachChannel | null => {
+  const raw = lead.meta?.outreach_channel;
+  if (typeof raw !== "string") {
+    return null;
+  }
+  return toOutreachChannel(raw);
+};
+
 export default function LeadsQueue({
   leads,
   accessToken,
   backendBaseUrl,
-  mode = "dashboard"
+  mode = "dashboard",
+  defaultPatientId = null
 }: Props) {
   const router = useRouter();
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const [allLeads, setAllLeads] = useState<LeadRow[]>(leads);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(mode === "dashboard" ? leads.length >= DASHBOARD_PAGE_SIZE : false);
+  const [nextOffset, setNextOffset] = useState<number | null>(
+    mode === "dashboard" ? leads.length : null
+  );
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [openMenuLeadId, setOpenMenuLeadId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -71,11 +113,85 @@ export default function LeadsQueue({
   const [patientLoading, setPatientLoading] = useState(false);
   const [patientError, setPatientError] = useState<string | null>(null);
   const [startLeadId, setStartLeadId] = useState<string | null>(null);
+  const [startLeadChannel, setStartLeadChannel] = useState<OutreachChannel | null>(null);
   const [startPatientId, setStartPatientId] = useState<string | null>(null);
   const [startPatient, setStartPatient] = useState<PatientProfileData | null>(null);
   const [startLoading, setStartLoading] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [outreachChannel, setOutreachChannel] = useState<OutreachChannel>("text");
+
+  useEffect(() => {
+    setAllLeads(leads);
+    if (mode === "dashboard") {
+      setHasMore(leads.length >= DASHBOARD_PAGE_SIZE);
+      setNextOffset(leads.length);
+      setLoadMoreError(null);
+    } else {
+      setHasMore(false);
+      setNextOffset(null);
+    }
+  }, [leads, mode]);
+
+  const loadMoreLeads = useCallback(async () => {
+    if (mode !== "dashboard" || loadingMore || !hasMore || nextOffset === null) {
+      return;
+    }
+
+    setLoadingMore(true);
+    setLoadMoreError(null);
+
+    try {
+      const response = await fetch(
+        `${backendBaseUrl}/v1/dashboard/leads?limit=${DASHBOARD_PAGE_SIZE}&offset=${nextOffset}`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          cache: "no-store"
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to load more leads (${response.status})`);
+      }
+
+      const payload = (await response.json()) as LeadsPageResponse;
+
+      setAllLeads((current) => {
+        const existing = new Set(current.map((item) => item.id));
+        const incoming = payload.items.filter((item) => !existing.has(item.id));
+        return [...current, ...incoming];
+      });
+      setHasMore(payload.has_more);
+      setNextOffset(payload.next_offset);
+    } catch (err) {
+      setLoadMoreError(err instanceof Error ? err.message : "Failed to load more leads");
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [accessToken, backendBaseUrl, hasMore, loadingMore, mode, nextOffset]);
+
+  useEffect(() => {
+    if (mode !== "dashboard") {
+      return;
+    }
+
+    const container = listRef.current;
+    if (!container) {
+      return;
+    }
+
+    const handleScroll = () => {
+      const distanceToBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight;
+      if (distanceToBottom < 160) {
+        void loadMoreLeads();
+      }
+    };
+
+    container.addEventListener("scroll", handleScroll);
+    return () => {
+      container.removeEventListener("scroll", handleScroll);
+    };
+  }, [loadMoreLeads, mode]);
 
   useEffect(() => {
     if (!openMenuLeadId) {
@@ -96,8 +212,10 @@ export default function LeadsQueue({
     };
   }, [openMenuLeadId]);
 
+  const sourceLeads = mode === "dashboard" ? allLeads : leads;
+
   const filteredLeads = useMemo(() => {
-    let items = [...leads];
+    let items = [...sourceLeads];
     const now = Date.now();
     const activeSet = new Set(["open", "in_progress", "contacted", "qualified"]);
 
@@ -144,7 +262,7 @@ export default function LeadsQueue({
     }
 
     return items;
-  }, [filter, leads, mode, query, sortBy]);
+  }, [filter, mode, query, sortBy, sourceLeads]);
 
   const setStatus = async (leadId: string, status: string): Promise<boolean> => {
     if (status === "in_progress" && !startLeadId) {
@@ -211,16 +329,19 @@ export default function LeadsQueue({
 
   const openStartModal = (lead: LeadRow) => {
     const transcriptMeta = readTranscriptMeta(lead.transcripts);
+    const channelFromLead = readLeadOutreachChannel(lead);
     setOpenMenuLeadId(null);
     setStartLeadId(lead.id);
-    setStartPatientId(transcriptMeta?.patient_id ?? null);
+    setStartLeadChannel(channelFromLead);
+    setStartPatientId(transcriptMeta?.patient_id ?? defaultPatientId);
     setStartPatient(null);
     setStartError(null);
-    setOutreachChannel("text");
+    setOutreachChannel(channelFromLead ?? "text");
   };
 
   const closeStartModal = () => {
     setStartLeadId(null);
+    setStartLeadChannel(null);
     setStartPatientId(null);
     setStartPatient(null);
     setStartLoading(false);
@@ -261,12 +382,14 @@ export default function LeadsQueue({
           return;
         }
         setStartPatient(payload);
-        if (payload.patient.preferred_channel === "email") {
-          setOutreachChannel("email");
-        } else if (payload.patient.preferred_channel === "phone") {
-          setOutreachChannel("call");
-        } else {
-          setOutreachChannel("text");
+        if (!startLeadChannel) {
+          if (payload.patient.preferred_channel === "email") {
+            setOutreachChannel("email");
+          } else if (payload.patient.preferred_channel === "phone") {
+            setOutreachChannel("call");
+          } else {
+            setOutreachChannel("text");
+          }
         }
       } catch (err) {
         if (cancelled) {
@@ -283,9 +406,9 @@ export default function LeadsQueue({
     return () => {
       cancelled = true;
     };
-  }, [startLeadId, startPatientId]);
+  }, [startLeadChannel, startLeadId, startPatientId]);
 
-  if (leads.length === 0) {
+  if (sourceLeads.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/80 p-6 text-sm text-slate-600">
         No lead opportunities yet.
@@ -353,6 +476,7 @@ export default function LeadsQueue({
       ) : null}
 
       <div
+        ref={listRef}
         className={
           mode === "dashboard"
             ? "min-h-0 flex-1 max-h-[45rem] space-y-3 overflow-y-auto pr-1"
@@ -512,6 +636,12 @@ export default function LeadsQueue({
         })}
 
         {error ? <p className="text-sm font-medium text-slate-700">{error}</p> : null}
+        {mode === "dashboard" && loadingMore ? (
+          <p className="text-xs text-slate-500">Loading more leads...</p>
+        ) : null}
+        {mode === "dashboard" && loadMoreError ? (
+          <p className="text-xs font-medium text-slate-700">{loadMoreError}</p>
+        ) : null}
       </div>
 
       <PatientProfileDialog

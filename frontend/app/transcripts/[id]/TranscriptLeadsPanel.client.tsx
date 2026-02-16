@@ -18,6 +18,7 @@ type LeadRow = {
 
 type Props = {
   transcriptId: string;
+  transcriptPatientId?: string | null;
   leads: LeadRow[];
   accessToken: string;
   backendBaseUrl: string;
@@ -28,6 +29,7 @@ type ModelOption = "qwen2.5:1.5b" | "llama3.2:1b";
 
 export default function TranscriptLeadsPanel({
   transcriptId,
+  transcriptPatientId,
   leads,
   accessToken,
   backendBaseUrl,
@@ -39,6 +41,7 @@ export default function TranscriptLeadsPanel({
   );
   const [state, setState] = useState<"idle" | "loading">("idle");
   const [error, setError] = useState<string | null>(null);
+  const hasExistingLeads = leads.length > 0;
 
   const generateLeads = async () => {
     setState("loading");
@@ -82,7 +85,13 @@ export default function TranscriptLeadsPanel({
             <option value="llama3.2:1b">llama3.2:1b</option>
           </select>
           <button type="button" onClick={() => void generateLeads()} disabled={state === "loading"} className="btn-primary !px-3 !py-2 !text-xs">
-            {state === "loading" ? "Generating..." : "Generate leads"}
+            {state === "loading"
+              ? hasExistingLeads
+                ? "Regenerating..."
+                : "Generating..."
+              : hasExistingLeads
+                ? "Regenerate leads"
+                : "Generate leads"}
           </button>
         </div>
       </div>
@@ -95,6 +104,7 @@ export default function TranscriptLeadsPanel({
           accessToken={accessToken}
           backendBaseUrl={backendBaseUrl}
           mode="transcript"
+          defaultPatientId={transcriptPatientId ?? null}
         />
       </div>
     </section>

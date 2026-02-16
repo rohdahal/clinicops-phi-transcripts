@@ -16,6 +16,45 @@ const buildLast7Days = () => {
 };
 
 export async function dashboardRoutes(app: FastifyInstance) {
+  const followupStatuses = ["open", "in_progress", "contacted", "qualified"];
+
+  app.get<{ Querystring: { limit?: string; offset?: string } }>(
+    "/dashboard/leads",
+    { preHandler: authUser },
+    async (request, reply) => {
+      const limit = Math.min(Number(request.query.limit ?? 15), 50) || 15;
+      const offset = Math.max(Number(request.query.offset ?? 0), 0) || 0;
+      const rangeEnd = offset + limit;
+
+      const { data, error } = await supabaseAdmin
+        .from("lead_opportunities")
+        .select(
+          "id,created_at,transcript_id,title,reason,next_action,lead_score,status,due_at,meta,transcripts(patient_id,patient_pseudonym,source)"
+        )
+        .in("status", followupStatuses)
+        .order("lead_score", { ascending: false })
+        .order("created_at", { ascending: false })
+        .range(offset, rangeEnd);
+
+      if (error) {
+        reply.code(500);
+        return { error: "supabase_error" };
+      }
+
+      const items = data ?? [];
+      const hasMore = items.length > limit;
+      const slicedItems = hasMore ? items.slice(0, limit) : items;
+
+      return {
+        items: slicedItems,
+        limit,
+        offset,
+        next_offset: hasMore ? offset + limit : null,
+        has_more: hasMore
+      };
+    }
+  );
+
   app.get("/dashboard/metrics", { preHandler: authUser }, async (request, reply) => {
     const inboxPromise = supabaseAdmin
       .from("transcripts")
@@ -48,8 +87,6 @@ export async function dashboardRoutes(app: FastifyInstance) {
       .order("created_at", { ascending: false })
       .limit(10);
 
-    const followupStatuses = ["open", "in_progress", "contacted", "qualified"];
-
     const leadsOpenPromise = supabaseAdmin
       .from("lead_opportunities")
       .select("id", { count: "exact", head: true })
@@ -65,7 +102,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
     const leadsQueuePromise = supabaseAdmin
       .from("lead_opportunities")
       .select(
-        "id,created_at,transcript_id,title,reason,next_action,lead_score,status,due_at,transcripts(patient_id,patient_pseudonym,source)"
+        "id,created_at,transcript_id,title,reason,next_action,lead_score,status,due_at,meta,transcripts(patient_id,patient_pseudonym,source)"
       )
       .in("status", followupStatuses)
       .order("lead_score", { ascending: false })
