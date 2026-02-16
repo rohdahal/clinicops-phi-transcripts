@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import AppHeader from "@/src/components/AppHeader";
 import { getBackendBaseUrl } from "@/src/lib/backend";
 import { createSupabaseServerClient } from "@/src/lib/supabase/server";
-import LeadsQueue from "./LeadsQueue.client";
+import LeadsQueue from "@/src/components/leads/LeadsQueue.client";
 import Last7DaysChart from "./Last7DaysChart.client";
 
 type MetricsResponse = {

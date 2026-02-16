@@ -460,7 +460,7 @@ export default function LeadsQueue({
                         <button
                           type="button"
                           onClick={() => void openPatientModal(transcriptMeta.patient_id!)}
-                          className="font-medium text-slate-700 underline"
+                          className="cursor-pointer font-medium text-slate-700 underline"
                         >
                           {transcriptMeta?.patient_pseudonym ?? lead.transcript_id}
                         </button>

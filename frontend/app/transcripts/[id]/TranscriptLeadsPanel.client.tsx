@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import LeadsQueue from "@/app/dashboard/LeadsQueue.client";
+import LeadsQueue from "@/src/components/leads/LeadsQueue.client";
 
 type LeadRow = {
   id: string;
