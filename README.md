@@ -12,12 +12,44 @@ ClinicOps helps teams turn raw transcripts into actionable next steps.
 - Manage lead status and provider-side next actions
 - Maintain a full audit trail of processing activity
 
+```mermaid
+flowchart TD
+  A[Transcript inbox] --> B[Open transcript detail]
+  B --> C[Process transcript]
+  C --> D[Generate summary]
+  C --> E[Extract follow-up leads]
+  D --> F[Review output]
+  E --> F
+  F --> G{Approve?}
+  G -->|Yes| H[Mark transcript processed]
+  G -->|No| J[Regenerate leads]
+  J --> C
+
+  H --> I[Dashboard: follow-up queue]
+  I --> L[Open lead]
+  L --> M{Start follow-up?}
+  M -->|Manual| N[Initiate outreach]
+  M -->|AI-assisted| O[Pick AI-suggested channel]
+  O --> P[AI drafts follow-up]
+  P --> N
+  N --> Q[Update lead status]
+
+  F --> K[Audit events recorded]
+  H --> K
+  J --> K
+  Q --> K
+```
+
+Assisted follow-ups are optional. Clinicians can initiate outreach manually, or use AI to recommend a channel and help draft the message, then mark the lead status when complete.
+
+
 ## Core workflow
 1. Open a transcript from the inbox
 2. Run **Process transcript** (summary + lead generation)
 3. Review generated output
 4. Approve to mark the transcript as processed
 5. Regenerate leads if needed using a different model
+
 
 ## Where work happens
 - **Dashboard**: lead command center and follow-up queue.

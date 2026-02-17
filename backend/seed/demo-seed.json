@@ -5002,7 +5002,8 @@
         "seed": true,
         "batch": "mixed-channel-50-diverse-time",
         "transcript_index": 2,
-        "source": "zoom"
+        "source": "zoom",
+        "outreach_channel": "text"
       }
     },
     {
@@ -5023,7 +5024,8 @@
         "seed": true,
         "batch": "mixed-channel-50-diverse-time",
         "transcript_index": 4,
-        "source": "virtual_meeting"
+        "source": "virtual_meeting",
+        "outreach_channel": "text"
       }
     },
     {
@@ -5044,7 +5046,8 @@
         "seed": true,
         "batch": "mixed-channel-50-diverse-time",
         "transcript_index": 5,
-        "source": "twilio"
+        "source": "twilio",
+        "outreach_channel": "text"
       }
     },
     {
@@ -5065,7 +5068,8 @@
         "seed": true,
         "batch": "mixed-channel-50-diverse-time",
         "transcript_index": 6,
-        "source": "zoom"
+        "source": "zoom",
+        "outreach_channel": "call"
       }
     },
     {
@@ -5086,7 +5090,8 @@
         "seed": true,
         "batch": "mixed-channel-50-diverse-time",
         "transcript_index": 8,
-        "source": "twilio"
+        "source": "twilio",
+        "outreach_channel": "text"
       }
     },
     {
@@ -5107,7 +5112,8 @@
         "seed": true,
         "batch": "mixed-channel-50-diverse-time",
         "transcript_index": 10,
-        "source": "twilio"
+        "source": "twilio",
+        "outreach_channel": "text"
       }
     },
     {
@@ -5128,7 +5134,8 @@
         "seed": true,
         "batch": "mixed-channel-50-diverse-time",
         "transcript_index": 12,
-        "source": "twilio"
+        "source": "twilio",
+        "outreach_channel": "text"
       }
     },
     {
@@ -5149,7 +5156,8 @@
         "seed": true,
         "batch": "mixed-channel-50-diverse-time",
         "transcript_index": 14,
-        "source": "virtual_meeting"
+        "source": "virtual_meeting",
+        "outreach_channel": "call"
       }
     },
     {
@@ -5170,7 +5178,8 @@
         "seed": true,
         "batch": "mixed-channel-50-diverse-time",
         "transcript_index": 15,
-        "source": "twilio"
+        "source": "twilio",
+        "outreach_channel": "text"
       }
     },
     {
@@ -5191,7 +5200,8 @@
         "seed": true,
         "batch": "mixed-channel-50-diverse-time",
         "transcript_index": 16,
-        "source": "zoom"
+        "source": "zoom",
+        "outreach_channel": "text"
       }
     },
     {
@@ -5212,7 +5222,8 @@
         "seed": true,
         "batch": "mixed-channel-50-diverse-time",
         "transcript_index": 18,
-        "source": "virtual_meeting"
+        "source": "virtual_meeting",
+        "outreach_channel": "text"
       }
     },
     {
@@ -5233,7 +5244,8 @@
         "seed": true,
         "batch": "mixed-channel-50-diverse-time",
         "transcript_index": 20,
-        "source": "zoom"
+        "source": "zoom",
+        "outreach_channel": "text"
       }
     },
     {
@@ -5254,7 +5266,8 @@
         "seed": true,
         "batch": "mixed-channel-50-diverse-time",
         "transcript_index": 22,
-        "source": "twilio"
+        "source": "twilio",
+        "outreach_channel": "call"
       }
     },
     {
@@ -5275,7 +5288,8 @@
         "seed": true,
         "batch": "mixed-channel-50-diverse-time",
         "transcript_index": 24,
-        "source": "twilio"
+        "source": "twilio",
+        "outreach_channel": "text"
       }
     },
     {
@@ -5296,7 +5310,8 @@
         "seed": true,
         "batch": "mixed-channel-50-diverse-time",
         "transcript_index": 25,
-        "source": "virtual_meeting"
+        "source": "virtual_meeting",
+        "outreach_channel": "call"
       }
     },
     {
@@ -5317,7 +5332,8 @@
         "seed": true,
         "batch": "mixed-channel-50-diverse-time",
         "transcript_index": 26,
-        "source": "twilio"
+        "source": "twilio",
+        "outreach_channel": "text"
       }
     },
     {
@@ -5338,7 +5354,8 @@
         "seed": true,
         "batch": "mixed-channel-50-diverse-time",
         "transcript_index": 28,
-        "source": "virtual_meeting"
+        "source": "virtual_meeting",
+        "outreach_channel": "text"
       }
     },
     {
@@ -5359,7 +5376,8 @@
         "seed": true,
         "batch": "mixed-channel-50-diverse-time",
         "transcript_index": 30,
-        "source": "zoom"
+        "source": "zoom",
+        "outreach_channel": "call"
       }
     },
     {
@@ -5380,7 +5398,8 @@
         "seed": true,
         "batch": "mixed-channel-50-diverse-time",
         "transcript_index": 32,
-        "source": "virtual_meeting"
+        "source": "virtual_meeting",
+        "outreach_channel": "text"
       }
     },
     {
@@ -5401,7 +5420,8 @@
         "seed": true,
         "batch": "mixed-channel-50-diverse-time",
         "transcript_index": 34,
-        "source": "zoom"
+        "source": "zoom",
+        "outreach_channel": "text"
       }
     },
     {
@@ -5422,7 +5442,8 @@
         "seed": true,
         "batch": "mixed-channel-50-diverse-time",
         "transcript_index": 35,
-        "source": "virtual_meeting"
+        "source": "virtual_meeting",
+        "outreach_channel": "call"
       }
     },
     {
@@ -5443,7 +5464,8 @@
         "seed": true,
         "batch": "mixed-channel-50-diverse-time",
         "transcript_index": 36,
-        "source": "twilio"
+        "source": "twilio",
+        "outreach_channel": "text"
       }
     },
     {
@@ -5464,7 +5486,8 @@
         "seed": true,
         "batch": "mixed-channel-50-diverse-time",
         "transcript_index": 38,
-        "source": "twilio"
+        "source": "twilio",
+        "outreach_channel": "call"
       }
     },
     {
@@ -5485,7 +5508,8 @@
         "seed": true,
         "batch": "mixed-channel-50-diverse-time",
         "transcript_index": 40,
-        "source": "twilio"
+        "source": "twilio",
+        "outreach_channel": "text"
       }
     },
     {
@@ -5506,7 +5530,8 @@
         "seed": true,
         "batch": "mixed-channel-50-diverse-time",
         "transcript_index": 42,
-        "source": "virtual_meeting"
+        "source": "virtual_meeting",
+        "outreach_channel": "text"
       }
     },
     {
@@ -5527,7 +5552,8 @@
         "seed": true,
         "batch": "mixed-channel-50-diverse-time",
         "transcript_index": 44,
-        "source": "zoom"
+        "source": "zoom",
+        "outreach_channel": "text"
       }
     },
     {
@@ -5548,7 +5574,8 @@
         "seed": true,
         "batch": "mixed-channel-50-diverse-time",
         "transcript_index": 45,
-        "source": "twilio"
+        "source": "twilio",
+        "outreach_channel": "text"
       }
     },
     {
@@ -5569,7 +5596,8 @@
         "seed": true,
         "batch": "mixed-channel-50-diverse-time",
         "transcript_index": 46,
-        "source": "virtual_meeting"
+        "source": "virtual_meeting",
+        "outreach_channel": "call"
       }
     },
     {
@@ -5590,7 +5618,8 @@
         "seed": true,
         "batch": "mixed-channel-50-diverse-time",
         "transcript_index": 48,
-        "source": "zoom"
+        "source": "zoom",
+        "outreach_channel": "text"
       }
     },
     {
@@ -5611,7 +5640,8 @@
         "seed": true,
         "batch": "mixed-channel-50-diverse-time",
         "transcript_index": 50,
-        "source": "twilio"
+        "source": "twilio",
+        "outreach_channel": "text"
       }
     }
   ],
