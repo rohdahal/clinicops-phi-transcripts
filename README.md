@@ -13,7 +13,7 @@ ClinicOps helps teams turn raw transcripts into actionable next steps.
 - Maintain a full audit trail of processing activity
 
 ```mermaid
-flowchart TD
+flowchart LR
   A[Transcript inbox] --> B[Open transcript detail]
   B --> C[Process transcript]
   C --> D[Generate summary]
