@@ -155,3 +155,27 @@ Notes:
 - If you rely on the Docker fallback, run `docker compose up -d` first so `pg-client` is running.
 
 Environment variables are defined using example files. Copy `.env.example` to `backend/.env` and `frontend/.env.local` and fill in the required values. These env files are not committed.
+
+## Google OAuth setup (Supabase)
+
+Use this when enabling `Continue with Google` on `/login`.
+
+1. In Supabase:
+   - Go to `Authentication -> Providers -> Google`.
+   - Enable Google provider.
+   - Set `Client IDs` to your Google OAuth Web client ID.
+   - Set `Client Secret (for OAuth)` to your Google OAuth client secret.
+2. In Google Cloud Console:
+   - Create OAuth 2.0 Client ID (type: `Web application`).
+   - Authorized redirect URI must include:
+     - `https://<your-project-ref>.supabase.co/auth/v1/callback`
+3. In Supabase:
+   - Go to `Authentication -> URL Configuration`.
+   - Add app redirect URLs used by this project:
+     - `http://localhost:3000/auth/callback`
+     - `http://127.0.0.1:3000/auth/callback`
+     - Your production URL equivalent, e.g. `https://your-app-domain.com/auth/callback`
+
+Notes:
+- The provider callback URL (`...supabase.co/auth/v1/callback`) is registered in Google Cloud.
+- The app callback URL (`/auth/callback`) is registered in Supabase URL configuration.

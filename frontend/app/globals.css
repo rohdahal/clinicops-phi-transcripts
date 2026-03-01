@@ -2,14 +2,13 @@
 
 :root {
   --bg: #f4f8f7;
-  --bg-elev: #ffffff;
   --ink: #0c2223;
-  --muted: #557173;
   --line: #d4e2e3;
   --brand: #0e766e;
   --brand-strong: #0a5f5a;
-  --accent: #d97706;
-  --danger: #be123c;
+  --legion-blue: #2f63ea;
+  --legion-blue-strong: #1f49c9;
+  --legion-ink: #101b33;
 }
 
 @theme inline {
@@ -59,24 +58,12 @@ body {
     @apply rounded-2xl border border-white/65 bg-white/75 p-5 shadow-[0_18px_35px_-30px_rgba(12,34,35,0.45)] backdrop-blur;
   }
 
-  .section-kicker {
-    @apply text-[11px] font-semibold uppercase tracking-[0.16em] text-teal-700;
-  }
-
-  .section-title {
-    @apply mt-1 text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl;
-  }
-
   .btn-primary {
     @apply inline-flex items-center justify-center rounded-xl bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white transition duration-150 hover:-translate-y-0.5 hover:bg-[var(--brand-strong)] hover:shadow-[0_12px_20px_-14px_rgba(14,118,110,0.9)] disabled:cursor-not-allowed disabled:opacity-60;
   }
 
   .btn-secondary {
     @apply inline-flex items-center justify-center rounded-xl border border-teal-200 bg-white/85 px-4 py-2 text-sm font-semibold text-teal-800 transition duration-150 hover:-translate-y-0.5 hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-60;
-  }
-
-  .btn-danger {
-    @apply inline-flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition duration-150 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60;
   }
 
   .field {
@@ -89,6 +76,58 @@ body {
 
   .reveal {
     animation: rise-in 0.45s ease-out both;
+  }
+
+  .auth-shell {
+    @apply relative min-h-screen overflow-hidden;
+    background:
+      radial-gradient(84rem 42rem at -15% -20%, #cbe4ff 0%, transparent 68%),
+      radial-gradient(70rem 42rem at 120% -10%, #8cdff6 0%, transparent 58%),
+      linear-gradient(145deg, #1f4ed5 0%, #2f63ea 44%, #19a5d4 100%);
+  }
+
+  .auth-grid {
+    @apply relative z-10 mx-auto grid min-h-screen w-full max-w-6xl items-center gap-10 px-4 py-8 sm:px-6 lg:grid-cols-[1.1fr_0.9fr];
+  }
+
+  .auth-card {
+    @apply rounded-3xl border border-white/65 bg-white/96 p-6 shadow-[0_26px_80px_-42px_rgba(16,27,51,0.55)] backdrop-blur sm:p-8;
+  }
+
+  .auth-field {
+    @apply mt-1.5 w-full rounded-xl border border-slate-300/75 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition duration-150 placeholder:text-slate-400 focus:border-blue-400 focus:ring-4 focus:ring-blue-100;
+  }
+
+  .auth-primary {
+    @apply inline-flex w-full items-center justify-center rounded-xl bg-[var(--legion-blue)] px-4 py-2.5 text-sm font-semibold text-white transition duration-150 hover:-translate-y-0.5 hover:bg-[var(--legion-blue-strong)] disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .auth-outline {
+    @apply inline-flex w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-[var(--legion-ink)] transition duration-150 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .auth-divider {
+    @apply relative my-5 text-center text-xs font-semibold uppercase tracking-[0.16em] text-slate-400;
+  }
+
+  .auth-divider::before {
+    content: "";
+    @apply absolute left-0 top-1/2 h-px w-full bg-slate-200;
+  }
+
+  .auth-divider span {
+    @apply relative z-[1] bg-white px-3;
+  }
+
+  .auth-brand-badge {
+    @apply inline-flex items-center gap-2 rounded-full border border-white/40 bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-white/90;
+  }
+
+  .auth-glow {
+    @apply pointer-events-none absolute inset-0;
+    background:
+      radial-gradient(52rem 22rem at 8% 76%, rgba(255, 255, 255, 0.2) 0%, transparent 70%),
+      radial-gradient(36rem 16rem at 90% 20%, rgba(255, 255, 255, 0.14) 0%, transparent 66%);
   }
 }
 
