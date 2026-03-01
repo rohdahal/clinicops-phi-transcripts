@@ -123,7 +123,7 @@ export default function LeadsQueue({
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"active" | "overdue" | "dismissed" | "all">("all");
   const [query, setQuery] = useState("");
-  const [sortBy, setSortBy] = useState<"priority" | "due_soon" | "newest">("priority");
+  const [sortBy, setSortBy] = useState<"priority" | "due_soon" | "newest">("newest");
   const [selectedPatient, setSelectedPatient] = useState<PatientProfileData | null>(null);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [patientLoading, setPatientLoading] = useState(false);
@@ -272,6 +272,9 @@ export default function LeadsQueue({
       }
 
       items.sort((a, b) => {
+        if (filter === "all") {
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        }
         if (sortBy === "newest") {
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
         }
