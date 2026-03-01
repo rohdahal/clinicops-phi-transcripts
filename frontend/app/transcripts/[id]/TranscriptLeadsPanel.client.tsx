@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import LeadsQueue from "@/src/components/leads/LeadsQueue.client";
 
@@ -36,12 +36,33 @@ export default function TranscriptLeadsPanel({
   initialModel
 }: Props) {
   const router = useRouter();
+  const [leadItems, setLeadItems] = useState<LeadRow[]>(leads);
   const [model, setModel] = useState<ModelOption>(
     initialModel ?? "qwen2.5:1.5b"
   );
   const [state, setState] = useState<"idle" | "loading">("idle");
   const [error, setError] = useState<string | null>(null);
-  const hasExistingLeads = leads.length > 0;
+  const hasExistingLeads = leadItems.length > 0;
+
+  useEffect(() => {
+    setLeadItems(leads);
+  }, [leads]);
+
+  const fetchTranscriptLeads = async () => {
+    const response = await fetch(
+      `${backendBaseUrl}/v1/transcripts/${transcriptId}/leads`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        cache: "no-store"
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to refresh leads (${response.status})`);
+    }
+
+    return (await response.json()) as LeadRow[];
+  };
 
   const generateLeads = async () => {
     setState("loading");
@@ -61,9 +82,29 @@ export default function TranscriptLeadsPanel({
       );
 
       if (!response.ok) {
-        throw new Error(`Lead generation failed (${response.status})`);
+        let message = `Lead generation failed (${response.status})`;
+        try {
+          const body = (await response.json()) as { error?: string };
+          if (body.error === "ollama_timeout") {
+            message = "Lead generation timed out. Retry or use a smaller model.";
+          } else if (body.error) {
+            message = body.error;
+          }
+        } catch {
+          // ignore parse errors
+        }
+        throw new Error(message);
       }
 
+      let latestLeads: LeadRow[] = [];
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        latestLeads = await fetchTranscriptLeads();
+        if (latestLeads.some((lead) => lead.status === "open")) {
+          break;
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, 350));
+      }
+      setLeadItems(latestLeads);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Lead generation failed");
@@ -100,7 +141,7 @@ export default function TranscriptLeadsPanel({
 
       <div className="mt-4 max-h-[32rem] overflow-y-auto pr-1">
         <LeadsQueue
-          leads={leads}
+          leads={leadItems}
           accessToken={accessToken}
           backendBaseUrl={backendBaseUrl}
           mode="transcript"

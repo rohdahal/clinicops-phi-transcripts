@@ -4,7 +4,7 @@ create table if not exists public.lead_opportunities (
   id uuid primary key default gen_random_uuid(),
   created_at timestamptz not null default now(),
 
-  transcript_id uuid not null unique references public.transcripts (id) on delete cascade,
+  transcript_id uuid not null references public.transcripts (id) on delete cascade,
   source_artifact_id uuid references public.transcript_artifacts (id) on delete set null,
   model text not null default 'qwen2.5:1.5b',
 

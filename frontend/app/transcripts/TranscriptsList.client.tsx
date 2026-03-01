@@ -137,14 +137,14 @@ export default function TranscriptsList({
           </thead>
           <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
             {filteredItems.map((item) => (
-              <tr key={item.id} className="cursor-pointer hover:bg-teal-50/40" onClick={() => handleRowClick(item.id)}>
+              <tr key={item.id} className="cursor-pointer hover:bg-blue-50/50" onClick={() => handleRowClick(item.id)}>
                 <td className="px-4 py-3">{new Date(item.created_at).toLocaleString()}</td>
                 <td className="px-4 py-3 font-semibold text-slate-900">{item.patient_pseudonym}</td>
                 <td className="px-4 py-3">{item.source}</td>
                 <td className="px-4 py-3">{item.source_ref ?? "-"}</td>
                 <td className="px-4 py-3">
                   <Link
-                    className="font-semibold text-teal-700 underline"
+                    className="inline-flex items-center rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
                     href={`/transcripts/${item.id}?from=inbox`}
                     onClick={(event) => event.stopPropagation()}
                   >

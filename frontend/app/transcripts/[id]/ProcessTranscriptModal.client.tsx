@@ -38,6 +38,9 @@ type Props = {
 type WarmupState = "idle" | "loading" | "ready" | "error";
 type Step = 1 | 2 | 3;
 type ModelOption = "" | "qwen2.5:1.5b" | "llama3.2:1b";
+type WarmableModel = Exclude<ModelOption, "">;
+
+const warmedModels = new Set<WarmableModel>();
 
 export default function ProcessTranscriptModal({ transcript, accessToken, backendBaseUrl }: Props) {
   const router = useRouter();
@@ -73,9 +76,23 @@ export default function ProcessTranscriptModal({ transcript, accessToken, backen
   };
 
   useEffect(() => {
+    let cancelled = false;
+
     const warmup = async () => {
       if (!selectedModel) {
-        setWarmupState("idle");
+        if (!cancelled) {
+          setWarmupState("idle");
+        }
+        return;
+      }
+
+      if (warmedModels.has(selectedModel)) {
+        if (!cancelled) {
+          setWarmupState("ready");
+          setSummaryArtifact(null);
+          setLeadItems([]);
+          setError(null);
+        }
         return;
       }
 
@@ -95,24 +112,47 @@ export default function ProcessTranscriptModal({ transcript, accessToken, backen
         });
 
         if (!response.ok) {
+          let backendError: string | undefined;
+          try {
+            const payload = (await response.json()) as { error?: string };
+            backendError = payload.error;
+          } catch {
+            backendError = undefined;
+          }
           if (response.status === 401) {
             throw new Error("Session expired. Please log in again.");
           }
+          if (response.status === 504 || backendError === "ollama_timeout") {
+            throw new Error("Model warmup timed out. Please retry.");
+          }
           if (response.status === 502) {
-            throw new Error("Ollama unavailable.");
+            throw new Error(
+              backendError && backendError !== "ollama_unavailable"
+                ? `Ollama error: ${backendError}`
+                : "Ollama unavailable."
+            );
           }
           throw new Error("Warmup failed");
         }
 
-        setWarmupState("ready");
+        if (!cancelled) {
+          warmedModels.add(selectedModel);
+          setWarmupState("ready");
+        }
       } catch (err) {
-        setWarmupState("error");
-        const message = err instanceof Error ? err.message : "Warmup failed";
-        setError(message);
+        if (!cancelled) {
+          setWarmupState("error");
+          const message = err instanceof Error ? err.message : "Warmup failed";
+          setError(message);
+        }
       }
     };
 
     void warmup();
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedModel, accessToken, backendBaseUrl]);
 
   useEffect(() => {

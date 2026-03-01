@@ -265,6 +265,7 @@ export async function ollamaGenerateLeadOpportunities(
     redactedText;
 
   const start = Date.now();
+  const leadGenerationTimeoutMs = 120000;
 
   try {
     const response = await fetchWithTimeout(
@@ -272,9 +273,17 @@ export async function ollamaGenerateLeadOpportunities(
       {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ model, prompt, stream: false })
+        body: JSON.stringify({
+          model,
+          prompt,
+          stream: false,
+          keep_alive: "30m",
+          options: {
+            temperature: 0.1
+          }
+        })
       },
-      30000
+      leadGenerationTimeoutMs
     );
 
     if (!response.ok) {
@@ -294,7 +303,10 @@ export async function ollamaGenerateLeadOpportunities(
     return { items, latency_ms: Date.now() - start };
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("ollama_unavailable");
+      throw new Error("ollama_timeout");
+    }
+    if (error instanceof Error && error.message.startsWith("ollama_error:")) {
+      throw error;
     }
     throw new Error("ollama_unavailable");
   }

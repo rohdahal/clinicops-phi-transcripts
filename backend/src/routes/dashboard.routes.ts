@@ -16,7 +16,9 @@ const buildLast7Days = () => {
 };
 
 export async function dashboardRoutes(app: FastifyInstance) {
-  const followupStatuses = ["open", "in_progress", "contacted", "qualified"];
+  const activeStatuses = ["in_progress", "contacted", "qualified"];
+  const overdueStatuses = ["open", ...activeStatuses];
+  const queueStatuses = [...overdueStatuses, "dismissed"];
 
   app.get<{ Querystring: { limit?: string; offset?: string } }>(
     "/dashboard/leads",
@@ -31,7 +33,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
         .select(
           "id,created_at,transcript_id,title,reason,next_action,lead_score,status,due_at,meta,transcripts(patient_id,patient_pseudonym,source)"
         )
-        .in("status", followupStatuses)
+        .in("status", queueStatuses)
         .order("lead_score", { ascending: false })
         .order("created_at", { ascending: false })
         .range(offset, rangeEnd);
@@ -90,12 +92,12 @@ export async function dashboardRoutes(app: FastifyInstance) {
     const leadsOpenPromise = supabaseAdmin
       .from("lead_opportunities")
       .select("id", { count: "exact", head: true })
-      .in("status", followupStatuses);
+      .in("status", activeStatuses);
 
     const leadsOverduePromise = supabaseAdmin
       .from("lead_opportunities")
       .select("id", { count: "exact", head: true })
-      .in("status", followupStatuses)
+      .in("status", overdueStatuses)
       .not("due_at", "is", null)
       .lt("due_at", new Date().toISOString());
 
@@ -104,7 +106,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
       .select(
         "id,created_at,transcript_id,title,reason,next_action,lead_score,status,due_at,meta,transcripts(patient_id,patient_pseudonym,source)"
       )
-      .in("status", followupStatuses)
+      .in("status", queueStatuses)
       .order("lead_score", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(15);

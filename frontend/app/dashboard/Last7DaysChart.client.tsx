@@ -40,7 +40,7 @@ export default function Last7DaysChart({ viewed, processed }: Props) {
             Viewed
           </span>
           <span className="inline-flex items-center gap-1">
-            <span className="inline-block h-2 w-2 rounded-full bg-slate-400" />
+            <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
             Processed
           </span>
         </div>
@@ -70,7 +70,7 @@ export default function Last7DaysChart({ viewed, processed }: Props) {
                   style={{ height: `${viewedHeight}px` }}
                 />
                 <div
-                  className="w-2.5 rounded-sm bg-slate-400"
+                  className="w-2.5 rounded-sm bg-emerald-500"
                   style={{ height: `${processedHeight}px` }}
                 />
               </div>

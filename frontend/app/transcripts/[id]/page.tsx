@@ -66,7 +66,6 @@ export default async function TranscriptDetailPage({ params, searchParams }: Pro
   return (
     <div className="app-shell">
       <AppHeader
-        backHref="/transcripts"
         tabs={[
           { href: "/dashboard", label: "Dashboard" },
           { href: "/transcripts", label: "Transcript Inbox", active: true }

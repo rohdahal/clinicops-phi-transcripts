@@ -320,10 +320,20 @@ async function main() {
   }
 
   if (seed.lead_opportunities.length > 0) {
-    const { error } = await supabase
+    const transcriptIds = Array.from(
+      new Set(seed.lead_opportunities.map((row) => row.transcript_id))
+    );
+
+    const { error: deleteError } = await supabase
       .from("lead_opportunities")
-      .upsert(seed.lead_opportunities, { onConflict: "transcript_id" });
-    if (error) throw error;
+      .delete()
+      .in("transcript_id", transcriptIds);
+    if (deleteError) throw deleteError;
+
+    const { error: insertError } = await supabase
+      .from("lead_opportunities")
+      .insert(seed.lead_opportunities);
+    if (insertError) throw insertError;
   }
 
   if (seed.audit_events.length > 0) {

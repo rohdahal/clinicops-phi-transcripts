@@ -98,7 +98,7 @@ async function createLeadsFromAi(params: {
 
   const { error } = await supabaseAdmin
     .from("lead_opportunities")
-    .upsert(row, { onConflict: "transcript_id" });
+    .insert(row);
   if (error) {
     throw new Error("supabase_error");
   }
@@ -107,6 +107,20 @@ async function createLeadsFromAi(params: {
 }
 
 export async function transcriptsRoutes(app: FastifyInstance) {
+  const replyWithOllamaError = (reply: { code: (statusCode: number) => void }, error: unknown) => {
+    const message = error instanceof Error ? error.message : "ollama_unavailable";
+    if (message === "ollama_timeout") {
+      reply.code(504);
+      return { error: "ollama_timeout" };
+    }
+    if (message.startsWith("ollama_error:")) {
+      reply.code(502);
+      return { error: message };
+    }
+    reply.code(502);
+    return { error: "ollama_unavailable" };
+  };
+
   app.get<{ Querystring: TranscriptQuery }>(
     "/transcripts",
     { preHandler: authUser },
@@ -262,8 +276,7 @@ export async function transcriptsRoutes(app: FastifyInstance) {
         summary = await ollamaGenerateSummary(model, transcript.redacted_text);
       } catch (error) {
         console.error("Ollama summary failed", error);
-        reply.code(502);
-        return { error: "ollama_unavailable" };
+        return replyWithOllamaError(reply, error);
       }
 
       const { data: artifact, error } = await supabaseAdmin
@@ -377,8 +390,7 @@ export async function transcriptsRoutes(app: FastifyInstance) {
         return { ok: true, lead_count: result.count };
       } catch (error) {
         console.error("Ollama leads failed", error);
-        reply.code(502);
-        return { error: "ollama_unavailable" };
+        return replyWithOllamaError(reply, error);
       }
     }
   );

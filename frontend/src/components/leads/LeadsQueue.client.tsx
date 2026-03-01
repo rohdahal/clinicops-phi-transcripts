@@ -60,9 +60,25 @@ const readTranscriptMeta = (value: LeadRow["transcripts"]) => {
 
 const formatStatus = (status: string) => status.replaceAll("_", " ");
 const getScoreTier = (score: number) => {
-  if (score >= 0.8) return { label: "High", dotClass: "bg-emerald-500" };
-  if (score >= 0.5) return { label: "Medium", dotClass: "bg-amber-500" };
-  return { label: "Low", dotClass: "bg-slate-400" };
+  if (score >= 0.8) {
+    return {
+      label: "High",
+      dotClass: "bg-emerald-500",
+      stripClass: "bg-emerald-500"
+    };
+  }
+  if (score >= 0.5) {
+    return {
+      label: "Medium",
+      dotClass: "bg-amber-500",
+      stripClass: "bg-amber-500"
+    };
+  }
+  return {
+    label: "Low",
+    dotClass: "bg-slate-400",
+    stripClass: "bg-slate-400"
+  };
 };
 
 const toOutreachChannel = (value: string | null | undefined): OutreachChannel | null => {
@@ -105,7 +121,7 @@ export default function LeadsQueue({
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [openMenuLeadId, setOpenMenuLeadId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"active" | "overdue" | "all">("active");
+  const [filter, setFilter] = useState<"active" | "overdue" | "dismissed" | "all">("all");
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState<"priority" | "due_soon" | "newest">("priority");
   const [selectedPatient, setSelectedPatient] = useState<PatientProfileData | null>(null);
@@ -217,18 +233,29 @@ export default function LeadsQueue({
   const filteredLeads = useMemo(() => {
     let items = [...sourceLeads];
     const now = Date.now();
-    const activeSet = new Set(["open", "in_progress", "contacted", "qualified"]);
+    const activeSet = new Set(["in_progress", "contacted", "qualified"]);
+    const overdueSet = new Set(["open", "in_progress", "contacted", "qualified"]);
+    const transcriptVisibleSet = new Set(["open", "in_progress", "contacted", "qualified", "dismissed"]);
+
+    if (mode === "transcript") {
+      items = items.filter((lead) => transcriptVisibleSet.has(lead.status));
+      items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      return items;
+    }
 
     if (mode === "dashboard") {
       if (filter !== "all") {
         items = items.filter((lead) => {
-          if (!activeSet.has(lead.status)) {
-            return false;
+          if (filter === "dismissed") {
+            return lead.status === "dismissed";
           }
           if (filter === "overdue") {
+            if (!overdueSet.has(lead.status)) {
+              return false;
+            }
             return lead.due_at ? new Date(lead.due_at).getTime() < now : false;
           }
-          return true;
+          return activeSet.has(lead.status);
         });
       }
 
@@ -419,18 +446,18 @@ export default function LeadsQueue({
   return (
     <div className={mode === "dashboard" ? "flex h-full min-h-0 flex-col gap-3" : "space-y-3"}>
       {mode === "dashboard" ? (
-        <div className="rounded-xl border border-slate-200 bg-slate-50/95 p-3">
+        <div className="rounded-2xl border border-slate-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.82)_0%,rgba(244,248,255,0.86)_100%)] p-3 shadow-[0_12px_24px_-20px_rgba(15,23,42,0.35)] backdrop-blur">
           <div className="flex flex-wrap items-center gap-2">
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search title, patient, reason"
-              className="field !mt-0 h-9 min-w-[14rem] flex-1 !py-1.5"
+              className="field !mt-0 h-9 min-w-[14rem] flex-1 !border-slate-300/85 !bg-white/92 !py-1.5"
             />
             <select
               value={sortBy}
               onChange={(event) => setSortBy(event.target.value as "priority" | "due_soon" | "newest")}
-              className="field !mt-0 h-9 min-w-[9rem] !py-1.5"
+              className="field !mt-0 h-9 min-w-[9rem] !border-slate-300/85 !bg-white/92 !py-1.5"
             >
               <option value="priority">Priority</option>
               <option value="due_soon">Due soon</option>
@@ -440,11 +467,22 @@ export default function LeadsQueue({
           <div className="mt-2 flex flex-wrap gap-2">
             <button
               type="button"
+              onClick={() => setFilter("all")}
+              className={`chip transition ${
+                filter === "all"
+                  ? "border-slate-700 bg-slate-800 text-white"
+                  : "border-slate-300 bg-white/92 text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              All
+            </button>
+            <button
+              type="button"
               onClick={() => setFilter("active")}
               className={`chip transition ${
                 filter === "active"
                   ? "border-slate-700 bg-slate-800 text-white"
-                  : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                  : "border-slate-300 bg-white/92 text-slate-700 hover:bg-slate-50"
               }`}
             >
               Active
@@ -455,21 +493,21 @@ export default function LeadsQueue({
               className={`chip transition ${
                 filter === "overdue"
                   ? "border-slate-700 bg-slate-800 text-white"
-                  : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                  : "border-slate-300 bg-white/92 text-slate-700 hover:bg-slate-50"
               }`}
             >
               Overdue
             </button>
             <button
               type="button"
-              onClick={() => setFilter("all")}
+              onClick={() => setFilter("dismissed")}
               className={`chip transition ${
-                filter === "all"
+                filter === "dismissed"
                   ? "border-slate-700 bg-slate-800 text-white"
-                  : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                  : "border-slate-300 bg-white/92 text-slate-700 hover:bg-slate-50"
               }`}
             >
-              All
+              Dismissed
             </button>
           </div>
         </div>
@@ -494,12 +532,13 @@ export default function LeadsQueue({
           return (
             <article
               key={lead.id}
-              className={`rounded-xl border p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
+              className={`relative rounded-xl border p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
                 isOverdue
-                  ? "border-slate-300 bg-slate-50"
-                  : "border-slate-200 bg-white"
+                  ? "border-slate-300/90 bg-white/78"
+                  : "border-slate-200/90 bg-white/86"
               }`}
             >
+              <span className={`absolute left-0 top-0 h-full w-1.5 ${scoreTier.stripClass}`} aria-hidden="true" />
               <div className="flex items-center gap-2">
                 <p className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900" title={lead.title}>
                   {lead.title}
@@ -572,7 +611,7 @@ export default function LeadsQueue({
               </div>
 
               <p className="mt-2 text-sm text-slate-700">{lead.reason}</p>
-              <p className="mt-2 rounded-md bg-slate-50 p-2 text-xs text-slate-700">Next action: {lead.next_action}</p>
+              <p className="mt-2 rounded-md bg-slate-100/75 p-2 text-xs text-slate-700">Next action: {lead.next_action}</p>
 
               <div className="mt-3 flex items-center justify-between gap-3">
                 <div className="min-w-0 truncate text-xs text-slate-500">
@@ -618,13 +657,13 @@ export default function LeadsQueue({
                         <path strokeLinecap="round" strokeLinejoin="round" d="M14 3H7a2 2 0 0 0-2 2v14l3-2 3 2 3-2 3 2V8z" />
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 8h5M9 12h5" />
                       </svg>
-                      <span className="pointer-events-none absolute right-0 top-full z-10 mt-1 hidden whitespace-nowrap rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 shadow-sm group-hover:block">
+                      <span className="pointer-events-none absolute right-0 top-full z-10 mt-1 hidden whitespace-nowrap rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 shadow-sm group-hover:block group-focus-within:block">
                         View transcript
                       </span>
                     </a>
                   ) : null}
                   <span
-                    className="inline-flex shrink-0 items-center justify-center rounded-xl border border-teal-200 bg-white/85 px-2 py-1 text-xs font-semibold text-teal-800"
+                    className="inline-flex shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white/90 px-2 py-1 text-xs font-semibold text-slate-700"
                   >
                     <span className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${scoreTier.dotClass}`} aria-hidden="true" />
                     {Math.round(lead.lead_score * 100)}% {scoreTier.label}
