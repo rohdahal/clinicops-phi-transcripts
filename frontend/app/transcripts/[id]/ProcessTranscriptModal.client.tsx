@@ -22,6 +22,7 @@ type Artifact = {
 
 type LeadItem = {
   id: string;
+  source_artifact_id?: string | null;
   title: string;
   reason: string;
   next_action: string;
@@ -248,7 +249,7 @@ export default function ProcessTranscriptModal({ transcript, accessToken, backen
 
       if (leadsResponse.ok) {
         const leads = (await leadsResponse.json()) as LeadItem[];
-        setLeadItems(leads);
+        setLeadItems(leads.filter((lead) => lead.source_artifact_id === data.id));
       } else {
         setLeadItems([]);
       }

@@ -1,6 +1,6 @@
 import TranscriptsList from "./TranscriptsList.client";
 import AppHeader from "@/src/components/AppHeader";
-import { fetchTranscriptsPage } from "@/src/lib/backend";
+import { fetchTranscriptSources, fetchTranscriptsPage } from "@/src/lib/backend";
 import { createSupabaseServerClient } from "@/src/lib/supabase/server";
 
 type SearchParams = {
@@ -38,6 +38,12 @@ export default async function TranscriptsPage({ searchParams }: PageProps) {
     accessToken,
     ...filters
   });
+  const sourcePayload = await fetchTranscriptSources({ accessToken }).catch(() => ({ items: [] as string[] }));
+  const sourceOptions = [...sourcePayload.items];
+  if (filters.source && !sourceOptions.includes(filters.source)) {
+    sourceOptions.push(filters.source);
+    sourceOptions.sort((a, b) => a.localeCompare(b));
+  }
 
   return (
     <div className="app-shell">
@@ -64,10 +70,11 @@ export default async function TranscriptsPage({ searchParams }: PageProps) {
               Source
               <select name="source" defaultValue={filters.source ?? ""} className="field">
                 <option value="">All sources</option>
-                <option value="call">call</option>
-                <option value="chat">chat</option>
-                <option value="note">note</option>
-                <option value="import">import</option>
+                {sourceOptions.map((source) => (
+                  <option key={source} value={source}>
+                    {source}
+                  </option>
+                ))}
               </select>
             </label>
             <button type="submit" className="btn-primary">
@@ -80,8 +87,10 @@ export default async function TranscriptsPage({ searchParams }: PageProps) {
           initialItems={initialData.items}
           initialNextOffset={initialData.next_offset}
           initialHasMore={initialData.has_more}
+          initialTotalCount={initialData.total_count}
           accessToken={accessToken}
           initialFilters={filters}
+          sourceOptions={sourceOptions}
         />
       </main>
     </div>

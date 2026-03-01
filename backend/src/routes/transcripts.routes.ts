@@ -107,6 +107,33 @@ async function createLeadsFromAi(params: {
 }
 
 export async function transcriptsRoutes(app: FastifyInstance) {
+  app.get(
+    "/transcripts/sources",
+    { preHandler: authUser },
+    async (_request, reply) => {
+      const { data, error } = await supabaseAdmin
+        .from("transcripts")
+        .select("source")
+        .order("source", { ascending: true })
+        .limit(5000);
+
+      if (error) {
+        reply.code(500);
+        return { error: "supabase_error" };
+      }
+
+      const sources = Array.from(
+        new Set(
+          (data ?? [])
+            .map((row) => row.source?.trim())
+            .filter((value): value is string => Boolean(value))
+        )
+      ).sort((a, b) => a.localeCompare(b));
+
+      return { items: sources };
+    }
+  );
+
   const replyWithOllamaError = (reply: { code: (statusCode: number) => void }, error: unknown) => {
     const message = error instanceof Error ? error.message : "ollama_unavailable";
     if (message === "ollama_timeout") {
@@ -133,7 +160,7 @@ export async function transcriptsRoutes(app: FastifyInstance) {
 
       let query = supabaseAdmin
         .from("transcripts")
-        .select("id,created_at,patient_pseudonym,source,source_ref")
+        .select("id,created_at,patient_pseudonym,source,source_ref", { count: "exact" })
         .order("created_at", { ascending: false })
         .or("status.is.null,status.neq.processed")
         .range(offset, rangeEnd);
@@ -146,7 +173,7 @@ export async function transcriptsRoutes(app: FastifyInstance) {
         query = query.eq("patient_pseudonym", patientPseudonym);
       }
 
-      const { data, error } = await query;
+      const { data, error, count } = await query;
 
       if (error) {
         reply.code(500);
@@ -162,7 +189,8 @@ export async function transcriptsRoutes(app: FastifyInstance) {
         limit,
         offset,
         next_offset: hasMore ? offset + limit : null,
-        has_more: hasMore
+        has_more: hasMore,
+        total_count: count ?? slicedItems.length
       };
     }
   );

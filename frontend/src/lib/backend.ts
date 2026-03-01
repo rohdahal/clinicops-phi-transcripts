@@ -12,6 +12,11 @@ export type TranscriptListResponse = {
   offset: number;
   next_offset: number | null;
   has_more: boolean;
+  total_count: number;
+};
+
+export type TranscriptSourceListResponse = {
+  items: string[];
 };
 
 export type TranscriptDetail = TranscriptListItem & {
@@ -92,6 +97,27 @@ export async function fetchTranscriptsPage(params: {
   }
 
   return (await response.json()) as TranscriptListResponse;
+}
+
+export async function fetchTranscriptSources(params?: {
+  accessToken?: string;
+}) {
+  const headers = new Headers();
+
+  if (params?.accessToken) {
+    headers.set("Authorization", `Bearer ${params.accessToken}`);
+  }
+
+  const response = await fetch(
+    `${getBackendBaseUrl()}/v1/transcripts/sources`,
+    { cache: "no-store", headers }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to load transcript sources (${response.status})`);
+  }
+
+  return (await response.json()) as TranscriptSourceListResponse;
 }
 
 export async function fetchTranscriptById(

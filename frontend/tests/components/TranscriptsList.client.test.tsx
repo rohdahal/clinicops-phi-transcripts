@@ -54,6 +54,8 @@ describe("TranscriptsList", () => {
         ]}
         initialNextOffset={null}
         initialHasMore={false}
+        initialTotalCount={2}
+        sourceOptions={["call", "chat"]}
       />
     );
 
@@ -81,7 +83,8 @@ describe("TranscriptsList", () => {
       limit: 20,
       offset: 1,
       next_offset: null,
-      has_more: false
+      has_more: false,
+      total_count: 2
     });
 
     render(
@@ -97,11 +100,13 @@ describe("TranscriptsList", () => {
         ]}
         initialNextOffset={1}
         initialHasMore
+        initialTotalCount={2}
         accessToken="token-1"
+        sourceOptions={["call", "chat"]}
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
     await waitFor(() => {
       expect(fetchTranscriptsPageMock).toHaveBeenCalledWith(
@@ -126,6 +131,8 @@ describe("TranscriptsList", () => {
         ]}
         initialNextOffset={null}
         initialHasMore={false}
+        initialTotalCount={1}
+        sourceOptions={["call"]}
       />
     );
 

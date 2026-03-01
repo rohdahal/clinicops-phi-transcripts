@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   fetchTranscriptsPage,
   type TranscriptListItem
@@ -12,29 +12,47 @@ type Props = {
   initialItems: TranscriptListItem[];
   initialNextOffset: number | null;
   initialHasMore: boolean;
+  initialTotalCount: number;
   accessToken?: string;
+  sourceOptions: string[];
   initialFilters?: {
     source?: string;
     patient_pseudonym?: string;
   };
 };
 
+const PAGE_SIZE = 20;
+
 export default function TranscriptsList({
   initialItems,
   initialNextOffset,
   initialHasMore,
+  initialTotalCount,
   accessToken,
+  sourceOptions,
   initialFilters
 }: Props) {
   const router = useRouter();
   const [items, setItems] = useState(initialItems);
   const [nextOffset, setNextOffset] = useState(initialNextOffset);
   const [hasMore, setHasMore] = useState(initialHasMore);
+  const [totalCount, setTotalCount] = useState(initialTotalCount);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [selectedSource, setSelectedSource] = useState("");
+  const [pageIndex, setPageIndex] = useState(0);
   const [patientFilter] = useState(initialFilters?.patient_pseudonym ?? "");
   const [serverSource] = useState(initialFilters?.source ?? "");
+  const availableSources = useMemo(() => {
+    const combined = [...sourceOptions];
+    for (const item of items) {
+      const source = item.source?.trim();
+      if (source && !combined.includes(source)) {
+        combined.push(source);
+      }
+    }
+    return combined.sort((a, b) => a.localeCompare(b));
+  }, [items, sourceOptions]);
 
   const filteredItems = useMemo(() => {
     const normalizedSearch = searchText.trim().toLowerCase();
@@ -58,9 +76,23 @@ export default function TranscriptsList({
     });
   }, [items, searchText, selectedSource]);
 
-  const handleLoadMore = async () => {
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
+  const pageStart = pageIndex * PAGE_SIZE;
+  const pagedItems = filteredItems.slice(pageStart, pageStart + PAGE_SIZE);
+
+  useEffect(() => {
+    setPageIndex(0);
+  }, [searchText, selectedSource]);
+
+  useEffect(() => {
+    if (pageIndex > totalPages - 1) {
+      setPageIndex(Math.max(0, totalPages - 1));
+    }
+  }, [pageIndex, totalPages]);
+
+  const handleLoadMore = async (): Promise<number> => {
     if (!hasMore || nextOffset === null) {
-      return;
+      return 0;
     }
 
     setLoading(true);
@@ -77,8 +109,26 @@ export default function TranscriptsList({
       setItems((prev) => [...prev, ...response.items]);
       setNextOffset(response.next_offset ?? null);
       setHasMore(response.has_more);
+      setTotalCount(response.total_count);
+      return response.items.length;
+    } catch {
+      return 0;
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleNextPage = async () => {
+    if (pageIndex < totalPages - 1) {
+      setPageIndex((current) => current + 1);
+      return;
+    }
+
+    if (hasMore && !loading) {
+      const appended = await handleLoadMore();
+      if (appended > 0) {
+        setPageIndex((current) => current + 1);
+      }
     }
   };
 
@@ -107,10 +157,11 @@ export default function TranscriptsList({
               className="field"
             >
               <option value="">All sources</option>
-              <option value="call">call</option>
-              <option value="chat">chat</option>
-              <option value="note">note</option>
-              <option value="import">import</option>
+              {availableSources.map((source) => (
+                <option key={source} value={source}>
+                  {source}
+                </option>
+              ))}
             </select>
           </label>
         </div>
@@ -136,7 +187,7 @@ export default function TranscriptsList({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-            {filteredItems.map((item) => (
+            {pagedItems.map((item) => (
               <tr key={item.id} className="cursor-pointer hover:bg-blue-50/50" onClick={() => handleRowClick(item.id)}>
                 <td className="px-4 py-3">{new Date(item.created_at).toLocaleString()}</td>
                 <td className="px-4 py-3 font-semibold text-slate-900">{item.patient_pseudonym}</td>
@@ -153,7 +204,7 @@ export default function TranscriptsList({
                 </td>
               </tr>
             ))}
-            {filteredItems.length === 0 ? (
+            {pagedItems.length === 0 ? (
               <tr>
                 <td className="px-4 py-6 text-center text-slate-500" colSpan={5}>
                   No transcripts found.
@@ -166,11 +217,35 @@ export default function TranscriptsList({
 
       <div className="flex items-center justify-between text-sm text-slate-600">
         <span>
-          Showing {filteredItems.length} of {items.length} loaded
+          Showing {filteredItems.length === 0 ? 0 : pageStart + 1}-
+          {Math.min(pageStart + PAGE_SIZE, filteredItems.length)} of {totalCount}
         </span>
-        <button type="button" onClick={handleLoadMore} disabled={!hasMore || loading} className="btn-secondary">
-          {loading ? "Loading..." : hasMore ? "Load more" : "No more"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPageIndex(0)}
+            disabled={pageIndex === 0}
+            className="btn-secondary"
+          >
+            First
+          </button>
+          <button
+            type="button"
+            onClick={() => setPageIndex((current) => Math.max(0, current - 1))}
+            disabled={pageIndex === 0}
+            className="btn-secondary"
+          >
+            Prev
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleNextPage()}
+            disabled={loading || (pageIndex >= totalPages - 1 && !hasMore)}
+            className="btn-secondary"
+          >
+            {loading ? "Loading..." : "Next"}
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -135,6 +135,32 @@ describe("transcriptsRoutes", () => {
     await app.close();
   });
 
+  it("lists distinct transcript sources", async () => {
+    supabaseAdminMock.from = queueTableBuilders({
+      transcripts: [
+        createQueryBuilder({
+          data: [
+            { source: "call" },
+            { source: "chat" },
+            { source: "call" },
+            { source: " note " }
+          ],
+          error: null
+        })
+      ]
+    });
+
+    const app = fastify();
+    await app.register(transcriptsRoutes, { prefix: "/v1" });
+
+    const response = await app.inject({ method: "GET", url: "/v1/transcripts/sources" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ items: ["call", "chat", "note"] });
+
+    await app.close();
+  });
+
   it("generates summary artifact and lead", async () => {
     ollamaMock.ollamaGenerateSummary.mockResolvedValue({ text: "summary text", latency_ms: 120 });
     ollamaMock.ollamaGenerateLeadOpportunities.mockResolvedValue({
